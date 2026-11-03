@@ -556,7 +556,8 @@ private fun SummaryView(
             .verticalScroll(rememberScrollState()),
     ) {
         ScreenHeader("Set bitti · ${exercise.titleUpper()}", "%$accuracy doğru")
-        if (restSeconds != null) RestTimer(restSeconds, voiceOn)
+        // Hiç tekrar yapılmadan bitirilen sette dinlenmeye gerek yok
+        if (restSeconds != null && reps.isNotEmpty()) RestTimer(restSeconds, voiceOn)
         StatsRow(
             listOf(
                 "Doğru" to "$correct",
