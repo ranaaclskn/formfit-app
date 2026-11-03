@@ -30,6 +30,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.sp
+import com.ranaaclskn.formfit.data.practicedExercises
+import com.ranaaclskn.formfit.data.exerciseProgress
+import com.ranaaclskn.formfit.data.ProgressPoint
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,7 +62,7 @@ fun HistoryScreen(onOpen: (String) -> Unit) {
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 28.dp)) {
         item { ScreenHeader("Kayıtlar", "Geçmiş", "Yaptığın tüm antrenmanlar ve hataların, tarihleriyle.") }
-        item { SegmentedTabs(listOf("Antrenmanlar", "Hatalarım"), tab, { tab = it }) }
+        item { SegmentedTabs(listOf("Antrenmanlar", "Hatalarım", "İlerleme"), tab, { tab = it }) }
         if (all.isEmpty()) {
             item {
                 Column(
@@ -83,6 +87,10 @@ fun HistoryScreen(onOpen: (String) -> Unit) {
         }
         if (tab == 1) {
             faultItems(list)
+            return@LazyColumn
+        }
+        if (tab == 2) {
+            item { ProgressSection(all) }
             return@LazyColumn
         }
         item {
@@ -180,6 +188,84 @@ private fun FaultCard(e: FaultEntry) {
                 )
             }
             if (e.occurrences.size > 8) Overline("+${e.occurrences.size - 8} gün")
+        }
+    }
+}
+
+/** "İlerleme": hareket seçilir, son antrenmanlardaki doğruluk grafiği ve yorum gösterilir. */
+@Composable
+private fun ProgressSection(sessions: List<WorkoutSession>) {
+    val practiced = practicedExercises(sessions)
+    var selected by rememberSaveable { mutableStateOf<String?>(null) }
+    val id = selected?.takeIf { s -> practiced.any { it.first == s } } ?: practiced.firstOrNull()?.first ?: return
+    val progress = exerciseProgress(sessions, id)
+    Column {
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(practiced) { (exId, name) ->
+                PillOption(upperExerciseName(exId, name).substringBefore(" ("), exId == id) { selected = exId }
+            }
+        }
+        StatsRow(
+            listOf(
+                "İlk" to (progress.first?.let { "%$it" } ?: "–"),
+                "Son" to (progress.last?.let { "%$it" } ?: "–"),
+                "En iyi" to (progress.best?.let { "%$it" } ?: "–"),
+            ),
+        )
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .clip(RoundedCornerShape(22.dp))
+                .background(FfColors.Card)
+                .border(1.dp, FfColors.Border, RoundedCornerShape(22.dp))
+                .padding(18.dp),
+        ) {
+            Text("DOĞRULUK", style = MaterialTheme.typography.titleLarge, color = FfColors.Text)
+            Overline("Son ${progress.points.size} antrenman · ${progress.totalReps} tekrar")
+            Spacer(Modifier.height(16.dp))
+            AccuracyChart(progress.points)
+        }
+        progress.trend()?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodyMedium,
+                color = FfColors.TextSecondary,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            )
+        }
+    }
+}
+
+/** Her antrenman için bir sütun: yükseklik doğruluk yüzdesi, üstünde değer, altında tarih. */
+@Composable
+private fun AccuracyChart(points: List<ProgressPoint>) {
+    Row(Modifier.fillMaxWidth().height(200.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        points.forEachIndexed { i, p ->
+            val latest = i == points.lastIndex
+            Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("%${p.accuracy}", style = MaterialTheme.typography.labelSmall, color = if (latest) FfColors.Text else FfColors.TextMuted, maxLines = 1)
+                Spacer(Modifier.height(4.dp))
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth(0.7f)
+                            .fillMaxHeight((p.accuracy / 100f).coerceAtLeast(0.02f))
+                            .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                            .background(if (latest) FfColors.Accent else FfColors.TextMuted.copy(alpha = 0.5f)),
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    formatDateTime(p.date).substringBefore(" 20").substringBefore(","),
+                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.sp),
+                    color = FfColors.TextMuted,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }
