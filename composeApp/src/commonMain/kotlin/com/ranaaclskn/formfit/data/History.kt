@@ -72,6 +72,13 @@ object HistoryRepository {
 
     fun find(id: String): WorkoutSession? = _sessions.value.firstOrNull { it.id == id }
 
+    /** Yedekten geri yüklenen listeyle değiştirir. */
+    fun restore(sessions: List<WorkoutSession>) {
+        loaded = true
+        _sessions.value = sessions.sortedByDescending { it.startedAt }
+        save()
+    }
+
     private fun save() {
         runCatching { writeAppFile(FILE, json.encodeToString(HistoryFile(sessions = _sessions.value))) }
     }

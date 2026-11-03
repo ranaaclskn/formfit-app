@@ -44,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import com.ranaaclskn.formfit.data.BackupManager
 import com.ranaaclskn.formfit.data.HistoryRepository
 import com.ranaaclskn.formfit.data.WorkoutSession
 import com.ranaaclskn.formfit.data.decodeSet
@@ -83,6 +84,7 @@ fun HistoryScreen(onOpen: (String) -> Unit) {
                     )
                 }
             }
+            item { BackupCard() }
             return@LazyColumn
         }
         if (tab == 1) {
@@ -113,6 +115,7 @@ fun HistoryScreen(onOpen: (String) -> Unit) {
             }
         }
         items(list, key = { it.id }) { s -> SessionRow(s) { onOpen(s.id) } }
+        item { BackupCard() }
     }
 }
 
@@ -266,6 +269,41 @@ private fun AccuracyChart(points: List<ProgressPoint>) {
                     maxLines = 1,
                 )
             }
+        }
+    }
+}
+
+/** Geçmişi ve programları dosyaya yedekler ya da yedekten geri yükler. */
+@Composable
+private fun BackupCard() {
+    var message by remember { mutableStateOf<String?>(null) }
+    val launcher = rememberBackupLauncher(
+        onExported = { ok -> message = if (ok) "Yedek dosyası kaydedildi." else "Yedek kaydedilemedi." },
+        onImported = { text -> message = BackupManager.import(text) },
+    )
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .border(1.dp, FfColors.Border, RoundedCornerShape(22.dp))
+            .padding(20.dp),
+    ) {
+        Text("YEDEKLEME", style = MaterialTheme.typography.titleLarge, color = FfColors.Text)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Antrenman geçmişini ve programlarını bir dosyaya kaydet. Telefon değiştirirsen ya da uygulamayı silersen bu dosyadan geri yükleyebilirsin.",
+            style = MaterialTheme.typography.bodySmall,
+            color = FfColors.TextSecondary,
+        )
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SecondaryButton("Geri yükle", { launcher.import() }, Modifier.weight(1f))
+            PrimaryButton("Dışa aktar", { launcher.export(BackupManager.fileName(), BackupManager.export()) }, Modifier.weight(1f))
+        }
+        message?.let {
+            Spacer(Modifier.height(10.dp))
+            Text(it, style = MaterialTheme.typography.bodySmall, color = FfColors.Text)
         }
     }
 }

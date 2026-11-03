@@ -221,6 +221,14 @@ object PlanRepository {
 
     fun find(id: String): WorkoutPlan? = _plans.value.firstOrNull { it.id == id }
 
+    /** Yedekten geri yüklenen programlar ve öncelik sırası. */
+    fun restore(plans: List<WorkoutPlan>, order: List<String>) {
+        loaded = true
+        _plans.value = plans
+        _programOrder.value = order
+        save()
+    }
+
     fun upsert(plan: WorkoutPlan) {
         load()
         val list = _plans.value
