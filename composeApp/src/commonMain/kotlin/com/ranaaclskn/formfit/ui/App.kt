@@ -1,5 +1,6 @@
 package com.ranaaclskn.formfit.ui
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FitnessCenter
@@ -42,6 +43,8 @@ fun App() {
         val showBar = Tab.entries.any { it.route == route }
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
+            // Her ekran sistem çubuklarını kendisi ayarlar (antrenman ekranı kamerayı tam ekran gösterir)
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = { if (showBar) BottomBar(nav, route) },
         ) { padding ->
             NavHost(nav, startDestination = Tab.WORKOUT.route, modifier = Modifier.padding(padding)) {

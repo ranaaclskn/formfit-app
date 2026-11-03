@@ -105,10 +105,19 @@ actual fun CameraPoseView(
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                 .build()
-            analysis.setAnalyzer(executor) { proxy -> analyzer.analyze(proxy, mirror = frontCamera) }
-            val selector = if (frontCamera) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+            // İstenen kamera yoksa (ör. ön kamerası olmayan cihaz) diğerini kullan
+            val wanted = if (frontCamera) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+            val other = if (frontCamera) CameraSelector.DEFAULT_BACK_CAMERA else CameraSelector.DEFAULT_FRONT_CAMERA
+            val useWanted = runCatching { provider.hasCamera(wanted) }.getOrDefault(false)
+            val selector = if (useWanted) wanted else other
+            val mirror = if (useWanted) frontCamera else !frontCamera
+            analysis.setAnalyzer(executor) { proxy -> analyzer.analyze(proxy, mirror = mirror) }
             provider.unbindAll()
-            provider.bindToLifecycle(lifecycleOwner, selector, preview, analysis)
+            try {
+                provider.bindToLifecycle(lifecycleOwner, selector, preview, analysis)
+            } catch (e: Exception) {
+                android.util.Log.e("CameraPoseView", "Kamera açılamadı", e)
+            }
         }, ContextCompat.getMainExecutor(context))
         onDispose {
             disposed = true

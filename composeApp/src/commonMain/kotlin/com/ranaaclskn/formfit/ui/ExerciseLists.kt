@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -47,7 +48,7 @@ import com.ranaaclskn.formfit.model.Exercise
 fun WorkoutHomeScreen(onStart: (String) -> Unit) {
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
     val list = EXERCISES.filter { filter == null || it.category.name == filter }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { ScreenTitle("Antrenman", "Hareketi seç, kamerayı aç. FormFit doğru ve yanlış tekrarlarını saysın.") }
         item {
             LazyRow(
@@ -75,7 +76,7 @@ fun WorkoutHomeScreen(onStart: (String) -> Unit) {
 /** Hareketler sekmesi: nasıl yapıldığını gösteren sayfalara giriş. */
 @Composable
 fun LibraryScreen(onOpen: (String) -> Unit) {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { ScreenTitle("Hareketler", "Hareketin videosunu izle, dikkat edilmesi gerekenleri ve püf noktalarını öğren.") }
         Category.entries.forEach { cat ->
             val inCat = EXERCISES.filter { it.category == cat }

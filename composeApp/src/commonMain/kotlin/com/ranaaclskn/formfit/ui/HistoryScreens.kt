@@ -51,7 +51,7 @@ fun HistoryScreen(onOpen: (String) -> Unit) {
     val totalReps = list.sumOf { it.reps.size }
     val totalCorrect = list.sumOf { it.correctCount }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { ScreenTitle("Geçmiş", "Yaptığın tüm antrenmanlar ve tekrarların.") }
         if (all.isEmpty()) {
             item {

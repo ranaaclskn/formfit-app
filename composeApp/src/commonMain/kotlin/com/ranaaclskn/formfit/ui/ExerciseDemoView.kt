@@ -72,9 +72,9 @@ fun ExerciseDemoView(
             .clip(RoundedCornerShape(20.dp))
             .background(Color(0xFF101820)),
     ) {
-        Canvas(Modifier.fillMaxSize().padding(16.dp)) {
+        Canvas(Modifier.fillMaxSize().padding(if (showCue) 16.dp else 6.dp)) {
             val (bx0, by0, bx1, by1) = bounds.toList()
-            val scale = min(size.width / (bx1 - bx0), (size.height - 28.dp.toPx()) / (by1 - by0))
+            val scale = min(size.width / (bx1 - bx0), (size.height - (if (showCue) 28.dp.toPx() else 0f)) / (by1 - by0))
             val ox = (size.width - (bx1 - bx0) * scale) / 2f - bx0 * scale
             val oy = size.height - 4.dp.toPx() - by1 * scale
             fun p(v: Vec) = Offset(v.x * scale + ox, v.y * scale + oy)
@@ -90,7 +90,8 @@ fun ExerciseDemoView(
             val j = demo.jointsAt(progress)
             val near = FfColors.Accent
             val far = FfColors.Accent.copy(alpha = if (demo.view == DemoView.SIDE) 0.35f else 1f)
-            val w = 7.dp.toPx()
+            // Çizgi kalınlığı figürün boyuna göre; küçük önizlemede de orantılı görünsün
+            val w = (4.5f * scale).coerceIn(1.5.dp.toPx(), 7.dp.toPx())
             fun bone(a: Joint, b: Joint, c: Color) =
                 drawLine(c, p(j.getValue(a)), p(j.getValue(b)), strokeWidth = w, cap = StrokeCap.Round)
 
