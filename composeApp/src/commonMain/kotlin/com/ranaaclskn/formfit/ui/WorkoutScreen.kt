@@ -1,6 +1,10 @@
 package com.ranaaclskn.formfit.ui
 
 import androidx.compose.animation.animateColorAsState
+import com.ranaaclskn.formfit.analysis.VoiceCoach
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.size
@@ -76,9 +80,11 @@ data class PlanContext(
 )
 
 /** Kameradan gelen kareleri sayaca verir ve ekranda gösterilecek durumu tutar. */
-private class WorkoutController(val exercise: Exercise, val plan: PlanContext?) {
+private class WorkoutController(val exercise: Exercise, val plan: PlanContext?, private val target: Int) {
     private val counter = RepCounter(exercise.rule)
     private val clock = TimeSource.Monotonic.markNow()
+    /** Uyarılar ekrana yazılmak yerine sesli söylenir. */
+    val coach = VoiceCoach(say = { Speech.speak(it) }, clock = { clock.elapsedNow().inWholeMilliseconds })
 
     var frame by mutableStateOf<PoseFrame?>(null)
     var correct by mutableIntStateOf(0)
@@ -105,12 +111,17 @@ private class WorkoutController(val exercise: Exercise, val plan: PlanContext?) 
         frame = f
         if (!counting) return
         val rep = counter.process(f, clock.elapsedNow().inWholeMilliseconds)
+        val changed = counter.feedback != feedback
         feedback = counter.feedback
         if (rep != null) {
             reps += rep
             lastRep = rep
             correct = counter.correctCount
             incorrect = counter.incorrectCount
+            coach.onRep(rep, correct)
+            if (correct + incorrect >= target) coach.onTargetReached()
+        } else if (changed) {
+            coach.onFeedback(feedback)
         }
     }
 
@@ -141,8 +152,11 @@ fun WorkoutScreen(
     onShowHowTo: () -> Unit,
     plan: PlanContext? = null,
 ) {
-    val controller = remember(exercise) { WorkoutController(exercise, plan) }
     val target = plan?.targetReps ?: exercise.reps
+    val controller = remember(exercise) { WorkoutController(exercise, plan, target) }
+    var voiceOn by remember { mutableStateOf(true) }
+    controller.coach.enabled = voiceOn
+    DisposableEffect(Unit) { onDispose { Speech.stop() } }
     val setLabel = plan?.let { "${it.planName} · Set ${it.setNumber}/${it.totalSets}" }
     var stage by remember { mutableStateOf(Stage.SETUP) }
     var frontCamera by remember { mutableStateOf(true) }
@@ -156,6 +170,7 @@ fun WorkoutScreen(
             Stage.COUNTDOWN -> {
                 for (i in 5 downTo 1) { countdown = i; delay(1000) }
                 controller.start()
+                if (voiceOn) Speech.speak("Başla")
                 stage = Stage.ACTIVE
             }
             Stage.ACTIVE -> while (true) { elapsed = controller.elapsedMs(); delay(500) }
@@ -217,6 +232,15 @@ fun WorkoutScreen(
                         color = Color.White.copy(alpha = 0.7f),
                     )
                 }
+                RoundIconButton(
+                    if (voiceOn) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
+                    if (voiceOn) "Sesli koçu kapat" else "Sesli koçu aç",
+                    {
+                        voiceOn = !voiceOn
+                        if (!voiceOn) Speech.stop()
+                    },
+                )
+                Spacer(Modifier.width(8.dp))
                 RoundIconButton(Icons.Filled.Cameraswitch, "Kamerayı çevir", { frontCamera = !frontCamera })
             }
             if (stage == Stage.ACTIVE) {
@@ -245,17 +269,21 @@ fun WorkoutScreen(
                 Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                val done = controller.correct + controller.incorrect >= target
-                FeedbackBanner(
-                    if (done) LiveFeedback("Hedefe ulaştın! Seti bitirebilirsin", FeedbackKind.GOOD)
-                    else controller.feedback
-                )
+                // Uyarılar sesli söylenir; ekranda sadece sesli koçun durumu görünür
+                VoiceStatus(voiceOn)
                 Spacer(Modifier.height(12.dp))
                 PrimaryButton(
                     if (plan != null) "Seti bitir" else "Antrenmanı bitir",
                     onClick = {
                         durationAtEnd = controller.elapsedMs()
                         saved = controller.save()
+                        if (voiceOn) {
+                            val wrong = controller.incorrect
+                            Speech.speak(
+                                "Set bitti. ${controller.correct} doğru, $wrong yanlış." +
+                                    if (wrong > 0) " Hatalarını ekranda görebilirsin." else " Harika, hatasız!"
+                            )
+                        }
                         stage = Stage.SUMMARY
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -284,6 +312,27 @@ private fun Counter(label: String, value: Int, dot: Color, modifier: Modifier) {
             }
         }
         Text("$value", style = MaterialTheme.typography.displayLarge, color = Color.White)
+    }
+}
+
+@Composable
+private fun VoiceStatus(on: Boolean) {
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(50))
+            .background(Color.Black.copy(alpha = 0.6f))
+            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(50))
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            if (on) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
+            null,
+            tint = Color.White,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Overline(if (on) "Sesli koç açık · uyarıları dinle" else "Sesli koç kapalı", color = Color.White)
     }
 }
 
@@ -357,7 +406,7 @@ private fun SummaryView(
             .navigationBarsPadding()
             .verticalScroll(rememberScrollState()),
     ) {
-        ScreenHeader("Antrenman bitti · ${exercise.titleUpper()}", "%$accuracy doğru")
+        ScreenHeader("Set bitti · ${exercise.titleUpper()}", "%$accuracy doğru")
         StatsRow(
             listOf(
                 "Doğru" to "$correct",
@@ -371,8 +420,19 @@ private fun SummaryView(
             color = FfColors.TextMuted,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
         )
-        if (faults.isNotEmpty()) {
-            SectionCard("En sık hatalar", faults.map { "${it.first}  ·  ${it.second}×" }, Bullet.CAUTION)
+        if (reps.isNotEmpty()) {
+            if (faults.isEmpty()) {
+                SectionCard("Bu sette hata yok", listOf("Tüm tekrarlar doğru formda yapıldı. Böyle devam!"), Bullet.TIP)
+            } else {
+                SectionCard(
+                    "Bu sette yapılan hatalar",
+                    faults.map { (fault, count) ->
+                        val which = reps.filter { fault in it.faults }.joinToString(", ") { "${it.index}." }
+                        "$fault — $count kez ($which tekrar)"
+                    },
+                    Bullet.CAUTION,
+                )
+            }
         }
         if (reps.isNotEmpty()) RepList(reps.map { Triple(it.correct, it.durationMs, it.faults) })
         Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

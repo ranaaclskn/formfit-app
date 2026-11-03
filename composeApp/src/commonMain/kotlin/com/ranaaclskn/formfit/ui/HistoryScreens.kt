@@ -44,17 +44,21 @@ import com.ranaaclskn.formfit.data.HistoryRepository
 import com.ranaaclskn.formfit.data.WorkoutSession
 import com.ranaaclskn.formfit.data.decodeSet
 import com.ranaaclskn.formfit.data.formatDateTime
+import com.ranaaclskn.formfit.data.FaultEntry
+import com.ranaaclskn.formfit.data.faultLog
 
 @Composable
 fun HistoryScreen(onOpen: (String) -> Unit) {
     val all by HistoryRepository.sessions.collectAsState()
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
+    var tab by rememberSaveable { mutableStateOf(0) }
     val list = all.filter { filter == null || it.exerciseId == filter }
     val totalReps = list.sumOf { it.reps.size }
     val totalCorrect = list.sumOf { it.correctCount }
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 28.dp)) {
-        item { ScreenHeader("Kayıtlar", "Geçmiş", "Yaptığın tüm antrenmanlar, tekrar tekrar.") }
+        item { ScreenHeader("Kayıtlar", "Geçmiş", "Yaptığın tüm antrenmanlar ve hataların, tarihleriyle.") }
+        item { SegmentedTabs(listOf("Antrenmanlar", "Hatalarım"), tab, { tab = it }) }
         if (all.isEmpty()) {
             item {
                 Column(
@@ -77,6 +81,10 @@ fun HistoryScreen(onOpen: (String) -> Unit) {
             }
             return@LazyColumn
         }
+        if (tab == 1) {
+            faultItems(list)
+            return@LazyColumn
+        }
         item {
             StatsRow(
                 listOf(
@@ -97,6 +105,82 @@ fun HistoryScreen(onOpen: (String) -> Unit) {
             }
         }
         items(list, key = { it.id }) { s -> SessionRow(s) { onOpen(s.id) } }
+    }
+}
+
+/** "Hatalarım": her hareketteki her hata, kaç kez ve hangi tarihlerde yapıldığı. */
+private fun androidx.compose.foundation.lazy.LazyListScope.faultItems(sessions: List<WorkoutSession>) {
+    val log = faultLog(sessions)
+    val totalReps = sessions.sumOf { it.reps.size }
+    val wrongReps = sessions.sumOf { it.incorrectCount }
+    item {
+        StatsRow(
+            listOf(
+                "Hata" to "${log.sumOf { it.total }}",
+                "Yanlış tekrar" to "$wrongReps",
+                "Hata oranı" to "%${if (totalReps == 0) 0 else wrongReps * 100 / totalReps}",
+            ),
+            modifier = Modifier.padding(top = 10.dp, bottom = 6.dp),
+        )
+    }
+    if (log.isEmpty()) {
+        item {
+            Text(
+                "Kayıtlı hata yok. Tüm tekrarların doğru formda — harika!",
+                style = MaterialTheme.typography.bodyMedium,
+                color = FfColors.TextSecondary,
+                modifier = Modifier.padding(20.dp),
+            )
+        }
+        return
+    }
+    items(log, key = { it.exerciseId + it.fault }) { e -> FaultCard(e) }
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun FaultCard(e: FaultEntry) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 5.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(FfColors.Card)
+            .border(1.dp, FfColors.Border, RoundedCornerShape(20.dp))
+            .padding(18.dp),
+    ) {
+        Row(verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f)) {
+                Overline(upperExerciseName(e.exerciseId, e.exerciseName).substringBefore(" ("))
+                Spacer(Modifier.height(4.dp))
+                Text(e.fault, style = MaterialTheme.typography.titleMedium, color = FfColors.Text)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(horizontalAlignment = Alignment.End) {
+                Text("${e.total}×", style = MaterialTheme.typography.headlineLarge, color = FfColors.Text)
+                Overline("toplam")
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Overline("Son: ${formatDateTime(e.lastDate)}", color = FfColors.TextSecondary)
+        Spacer(Modifier.height(10.dp))
+        androidx.compose.foundation.layout.FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            e.occurrences.take(8).forEach { o ->
+                Text(
+                    "${formatDateTime(o.date).substringBefore(",")} · ${o.count}×",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = FfColors.TextSecondary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .border(1.dp, FfColors.Border, RoundedCornerShape(50))
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                )
+            }
+            if (e.occurrences.size > 8) Overline("+${e.occurrences.size - 8} gün")
+        }
     }
 }
 

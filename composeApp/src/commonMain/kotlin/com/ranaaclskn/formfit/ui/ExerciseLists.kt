@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +51,7 @@ import com.ranaaclskn.formfit.model.Category
 import com.ranaaclskn.formfit.model.EXERCISES
 import com.ranaaclskn.formfit.model.Exercise
 import com.ranaaclskn.formfit.model.Gear
+import com.ranaaclskn.formfit.model.matches
 
 private const val GYM_FILTER = "GYM"
 
@@ -59,12 +61,15 @@ private fun Exercise.number(): String = (EXERCISES.indexOf(this) + 1).toString()
 @Composable
 fun WorkoutHomeScreen(onStart: (String) -> Unit) {
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
+    var searching by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
     val list = EXERCISES.filter {
-        when (filter) {
+        val inFilter = when (filter) {
             null -> true
             GYM_FILTER -> it.gear.isGym
             else -> it.category.name == filter
         }
+        inFilter && it.matches(query)
     }
     val sessions by HistoryRepository.sessions.collectAsState()
     val weekAgo = nowMillis() - 7L * 24 * 60 * 60 * 1000
@@ -80,8 +85,11 @@ fun WorkoutHomeScreen(onStart: (String) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item(span = { GridItemSpan(2) }) {
-            Column(Modifier.padding(top = 20.dp, bottom = 4.dp)) {
-                Overline("FORMFIT · Antrenman")
+            Column(Modifier.padding(top = 12.dp, bottom = 4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Overline("FORMFIT · Antrenman", Modifier.weight(1f))
+                    RoundIconButton(Icons.Filled.Search, "Hareket ara", { searching = true })
+                }
                 Spacer(Modifier.height(6.dp))
                 Text("BUGÜN NE\nÇALIŞIYORUZ?", style = MaterialTheme.typography.displayLarge, color = FfColors.Text)
                 Spacer(Modifier.height(10.dp))
@@ -92,7 +100,22 @@ fun WorkoutHomeScreen(onStart: (String) -> Unit) {
                 )
             }
         }
-        item(span = { GridItemSpan(2) }) {
+        if (searching) {
+            item(span = { GridItemSpan(2) }) {
+                ExerciseSearchField(query, { query = it }, { searching = false; query = "" })
+            }
+            if (list.isEmpty()) {
+                item(span = { GridItemSpan(2) }) {
+                    Text(
+                        "\"$query\" ile eşleşen hareket bulunamadı.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = FfColors.TextMuted,
+                        modifier = Modifier.padding(vertical = 12.dp),
+                    )
+                }
+            }
+        }
+        if (!searching) item(span = { GridItemSpan(2) }) {
             WeekStrip(
                 workouts = thisWeek.size,
                 reps = weekReps,
@@ -187,7 +210,26 @@ private fun ExerciseTile(ex: Exercise, onClick: () -> Unit) {
 /** Hareketler sekmesi: numaralı, kategorilere ayrılmış liste. */
 @Composable
 fun LibraryScreen(onOpen: (String) -> Unit) {
+    var searching by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 28.dp)) {
+        item {
+            Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp), horizontalArrangement = Arrangement.End) {
+                RoundIconButton(Icons.Filled.Search, "Hareket ara", { searching = true })
+            }
+        }
+        if (searching) {
+            item { ExerciseSearchField(query, { query = it }, { searching = false; query = "" }, Modifier.padding(horizontal = 20.dp)) }
+            val found = EXERCISES.filter { it.matches(query) }
+            item(key = "found") {
+                Overline(
+                    if (found.isEmpty()) "Eşleşen hareket yok" else "${found.size} hareket",
+                    Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp),
+                )
+            }
+            items(found, key = { "s-" + it.id }) { ex -> LibraryRow(ex) { onOpen(ex.id) } }
+            return@LazyColumn
+        }
         item {
             ScreenHeader(
                 "Kütüphane",

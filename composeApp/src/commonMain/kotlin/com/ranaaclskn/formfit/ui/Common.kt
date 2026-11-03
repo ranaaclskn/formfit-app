@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -26,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -214,3 +218,66 @@ fun com.ranaaclskn.formfit.model.Exercise.titleUpper(): String = upperName ?: na
 /** Kayıtlı antrenmandaki hareketin büyük harfli adı. */
 fun upperExerciseName(id: String, name: String): String =
     com.ranaaclskn.formfit.model.exerciseById(id)?.titleUpper() ?: name.trUpper()
+
+/** Hap şeklinde sekme seçici: "ANTRENMANLAR | HATALARIM" gibi. */
+@Composable
+fun SegmentedTabs(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(50))
+            .background(FfColors.Surface)
+            .border(1.dp, FfColors.Border, RoundedCornerShape(50))
+            .padding(4.dp),
+    ) {
+        options.forEachIndexed { i, label ->
+            val on = i == selected
+            Text(
+                label.trUpper(),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (on) FfColors.OnAccent else FfColors.TextSecondary,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                maxLines = 1,
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(50))
+                    .background(if (on) FfColors.Accent else Color.Transparent)
+                    .clickable { onSelect(i) }
+                    .padding(vertical = 11.dp),
+            )
+        }
+    }
+}
+
+/** Hareket arama çubuğu; açılınca klavye kendiliğinden gelir. */
+@Composable
+fun ExerciseSearchField(query: String, onChange: (String) -> Unit, onClose: () -> Unit, modifier: Modifier = Modifier) {
+    val focus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
+    androidx.compose.runtime.LaunchedEffect(Unit) { focus.requestFocus() }
+    androidx.compose.material3.OutlinedTextField(
+        value = query,
+        onValueChange = onChange,
+        placeholder = { Text("Hareket, kas ya da alet ara…", color = FfColors.TextMuted) },
+        leadingIcon = { Icon(Icons.Filled.Search, null, tint = FfColors.TextSecondary) },
+        trailingIcon = {
+            Icon(
+                Icons.Filled.Close,
+                "Aramayı kapat",
+                tint = FfColors.Text,
+                modifier = Modifier.clip(CircleShape).clickable(onClick = onClose).padding(8.dp),
+            )
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(50),
+        textStyle = MaterialTheme.typography.titleMedium,
+        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = FfColors.Accent,
+            unfocusedBorderColor = FfColors.Border,
+            cursorColor = FfColors.Accent,
+            focusedContainerColor = FfColors.Card,
+            unfocusedContainerColor = FfColors.Card,
+        ),
+        modifier = modifier.fillMaxWidth().focusRequester(focus),
+    )
+}
