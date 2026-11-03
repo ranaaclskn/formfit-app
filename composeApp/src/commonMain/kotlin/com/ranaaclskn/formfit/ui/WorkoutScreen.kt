@@ -55,6 +55,7 @@ import com.ranaaclskn.formfit.analysis.RepResult
 import com.ranaaclskn.formfit.data.HistoryRepository
 import com.ranaaclskn.formfit.data.RepRecord
 import com.ranaaclskn.formfit.data.WorkoutSession
+import com.ranaaclskn.formfit.data.encodeSetNumber
 import com.ranaaclskn.formfit.data.nowMillis
 import com.ranaaclskn.formfit.model.Exercise
 import com.ranaaclskn.formfit.model.PoseFrame
@@ -63,8 +64,19 @@ import kotlin.time.TimeSource
 
 private enum class Stage { SETUP, COUNTDOWN, ACTIVE, SUMMARY }
 
+/** Antrenman bir programın parçasıysa: hangi program, hangi hareket, kaçıncı set. */
+data class PlanContext(
+    val planId: String,
+    val planName: String,
+    val runId: String,
+    val itemIndex: Int,
+    val setNumber: Int,
+    val totalSets: Int,
+    val targetReps: Int,
+)
+
 /** Kameradan gelen kareleri sayaca verir ve ekranda gösterilecek durumu tutar. */
-private class WorkoutController(val exercise: Exercise) {
+private class WorkoutController(val exercise: Exercise, val plan: PlanContext?) {
     private val counter = RepCounter(exercise.rule)
     private val clock = TimeSource.Monotonic.markNow()
 
@@ -112,6 +124,10 @@ private class WorkoutController(val exercise: Exercise) {
             startedAt = startedAt,
             durationMs = elapsedMs(),
             reps = reps.map { RepRecord(it.index, it.correct, it.faults, it.durationMs) },
+            planId = plan?.planId,
+            planName = plan?.planName,
+            planRunId = plan?.runId,
+            setNumber = plan?.let { encodeSetNumber(it.itemIndex, it.setNumber) },
         )
         HistoryRepository.add(session)
         return session
@@ -119,8 +135,15 @@ private class WorkoutController(val exercise: Exercise) {
 }
 
 @Composable
-fun WorkoutScreen(exercise: Exercise, onClose: () -> Unit, onShowHowTo: () -> Unit) {
-    val controller = remember(exercise) { WorkoutController(exercise) }
+fun WorkoutScreen(
+    exercise: Exercise,
+    onClose: () -> Unit,
+    onShowHowTo: () -> Unit,
+    plan: PlanContext? = null,
+) {
+    val controller = remember(exercise) { WorkoutController(exercise, plan) }
+    val target = plan?.targetReps ?: exercise.reps
+    val setLabel = plan?.let { "${it.planName} · Set ${it.setNumber}/${it.totalSets}" }
     var stage by remember { mutableStateOf(Stage.SETUP) }
     var frontCamera by remember { mutableStateOf(true) }
     var countdown by remember { mutableIntStateOf(5) }
@@ -146,7 +169,7 @@ fun WorkoutScreen(exercise: Exercise, onClose: () -> Unit, onShowHowTo: () -> Un
             reps = controller.reps,
             durationMs = durationAtEnd,
             saved = saved != null,
-            onRestart = { saved = null; stage = Stage.COUNTDOWN },
+            onRestart = if (plan == null) ({ saved = null; stage = Stage.COUNTDOWN }) else null,
             onClose = onClose,
         )
         return
@@ -189,8 +212,8 @@ fun WorkoutScreen(exercise: Exercise, onClose: () -> Unit, onShowHowTo: () -> Un
                 Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
                     Text(exercise.titleUpper(), style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 1)
                     Overline(
-                        if (stage == Stage.ACTIVE) "Süre ${formatDuration(elapsed)} · Hedef ${exercise.reps}"
-                        else exercise.cameraAngle.title,
+                        if (stage == Stage.ACTIVE) "${setLabel ?: "Süre ${formatDuration(elapsed)}"} · Hedef $target"
+                        else setLabel ?: exercise.cameraAngle.title,
                         color = Color.White.copy(alpha = 0.7f),
                     )
                 }
@@ -222,10 +245,14 @@ fun WorkoutScreen(exercise: Exercise, onClose: () -> Unit, onShowHowTo: () -> Un
                 Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                FeedbackBanner(controller.feedback)
+                val done = controller.correct + controller.incorrect >= target
+                FeedbackBanner(
+                    if (done) LiveFeedback("Hedefe ulaştın! Seti bitirebilirsin", FeedbackKind.GOOD)
+                    else controller.feedback
+                )
                 Spacer(Modifier.height(12.dp))
                 PrimaryButton(
-                    "Antrenmanı bitir",
+                    if (plan != null) "Seti bitir" else "Antrenmanı bitir",
                     onClick = {
                         durationAtEnd = controller.elapsedMs()
                         saved = controller.save()
@@ -316,7 +343,7 @@ private fun SummaryView(
     reps: List<RepResult>,
     durationMs: Long,
     saved: Boolean,
-    onRestart: () -> Unit,
+    onRestart: (() -> Unit)?,
     onClose: () -> Unit,
 ) {
     val correct = reps.count { it.correct }
@@ -349,8 +376,8 @@ private fun SummaryView(
         }
         if (reps.isNotEmpty()) RepList(reps.map { Triple(it.correct, it.durationMs, it.faults) })
         Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SecondaryButton("Tekrar başla", onRestart, Modifier.weight(1f))
-            PrimaryButton("Tamam", onClose, Modifier.weight(1f))
+            if (onRestart != null) SecondaryButton("Tekrar başla", onRestart, Modifier.weight(1f))
+            PrimaryButton(if (onRestart == null) "Programa dön" else "Tamam", onClose, Modifier.weight(1f))
         }
     }
 }

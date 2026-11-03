@@ -6,6 +6,7 @@ import com.ranaaclskn.formfit.demo.DemoAnimation
 enum class Category(val title: String) {
     LOWER("Alt Vücut"),
     UPPER("Üst Vücut"),
+    BACK("Sırt"),
     CORE("Kalça & Core"),
     CARDIO("Kardiyo"),
 }

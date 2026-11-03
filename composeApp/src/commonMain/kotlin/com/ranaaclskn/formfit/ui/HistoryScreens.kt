@@ -42,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.ranaaclskn.formfit.data.HistoryRepository
 import com.ranaaclskn.formfit.data.WorkoutSession
+import com.ranaaclskn.formfit.data.decodeSet
 import com.ranaaclskn.formfit.data.formatDateTime
 
 @Composable
@@ -127,6 +128,9 @@ private fun SessionRow(s: WorkoutSession, onClick: () -> Unit) {
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
+            if (s.planName != null) {
+                Overline(s.planName + (s.setNumber?.let { " · Set ${decodeSet(it)}" } ?: ""))
+            }
             Text(upperExerciseName(s.exerciseId, s.exerciseName).substringBefore(" ("), style = MaterialTheme.typography.titleLarge, color = FfColors.Text)
             Spacer(Modifier.height(2.dp))
             Text(

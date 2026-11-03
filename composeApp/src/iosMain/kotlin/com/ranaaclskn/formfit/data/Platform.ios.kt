@@ -16,18 +16,18 @@ import platform.Foundation.stringWithContentsOfFile
 import platform.Foundation.timeIntervalSince1970
 import platform.Foundation.writeToFile
 
-private fun historyPath(): String {
+private fun appFilePath(name: String): String {
     val dir = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, true).first() as String
-    return "$dir/history.json"
+    return "$dir/$name"
 }
 
 @OptIn(ExperimentalForeignApi::class)
-actual fun readHistoryFile(): String? =
-    NSString.stringWithContentsOfFile(historyPath(), NSUTF8StringEncoding, null)
+actual fun readAppFile(name: String): String? =
+    NSString.stringWithContentsOfFile(appFilePath(name), NSUTF8StringEncoding, null)
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
-actual fun writeHistoryFile(content: String) {
-    NSString.create(string = content).writeToFile(historyPath(), atomically = true, encoding = NSUTF8StringEncoding, error = null)
+actual fun writeAppFile(name: String, content: String) {
+    NSString.create(string = content).writeToFile(appFilePath(name), atomically = true, encoding = NSUTF8StringEncoding, error = null)
 }
 
 actual fun nowMillis(): Long = (NSDate().timeIntervalSince1970 * 1000).toLong()

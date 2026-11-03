@@ -325,6 +325,98 @@ val EXERCISES: List<Exercise> = listOf(
         upperName = "BICEPS CURL",
     ),
     Exercise(
+        id = "dumbbell-row",
+        name = "Dumbbell Row",
+        category = Category.BACK,
+        muscles = listOf("Sırt (latissimus)", "Arka omuz", "Ön kol (biceps)", "Romboidler"),
+        sets = 3, reps = 10,
+        cameraAngle = CameraAngle.SIDE,
+        setup = "Telefonu bel hizasında, 2 metre uzağa koy. Kameraya yan dön, çeken kolun kameraya yakın olsun.",
+        steps = listOf(
+            "Dizlerini hafif bük, kalçadan menteşe yaparak gövdeni yaklaşık 45 derece öne eğ.",
+            "Sırtın düz, dambıllar kolların uzanmış halde aşağıda olsun.",
+            "Dirseğini geriye ve yukarı, kalçana doğru çek.",
+            "Yukarıda kürek kemiklerini sık, yavaşça kolunu uzatarak indir.",
+        ),
+        cautions = listOf(
+            "Sırtını yuvarlama; göğüs açık, bel düz kalsın.",
+            "Gövdeni kaldırıp indirerek hız alma.",
+            "Omuzlarını kulaklarına doğru kaldırma.",
+        ),
+        tips = listOf(
+            "Ağırlığı elinle değil dirseğinle çektiğini düşün.",
+            "Dirseği gövdeye yakın tutmak sırtı daha çok çalıştırır.",
+            "Boşta kalan elini dizine ya da sehpaya dayamak beli rahatlatır.",
+        ),
+        rule = ExerciseRule(
+            primary = motion(ELBOW, Direction.DECREASING, SideMode.MIN, enterAt = 140f, targetAt = 95f, exitAt = 155f),
+            depthMessage = "Dirseğini daha yukarı, kalçana kadar çek",
+            gate = { f -> f.leanOrNull()?.let { it in 25f..80f } ?: false },
+            gateMessage = "Gövdeni öne eğ, yandan görün",
+            checks = listOf(
+                FormCheck("Gövdeni sabit tut, kalkıp inme") { f, ctx ->
+                    f.leanOrNull()?.let { abs(it - ctx.startTorsoLean) <= 12f }
+                },
+            ),
+            minRepMs = 900,
+        ),
+        demo = DemoAnimation(
+            view = DemoView.SIDE,
+            start = keyframe(DemoView.SIDE) { spine = -40f; thigh = 80f; shin = 100f },
+            end = keyframe(DemoView.SIDE) { spine = -40f; thigh = 80f; shin = 100f; upperArm = 160f; forearm = 95f },
+            anchor = DJ.AN_L,
+            toEndCue = "Dirseği kalçaya çek",
+            toStartCue = "Yavaşça uzat",
+            dumbbells = true,
+        ),
+        upperName = "DUMBBELL ROW",
+    ),
+    Exercise(
+        id = "romanian-deadlift",
+        name = "Romanian Deadlift",
+        category = Category.BACK,
+        muscles = listOf("Arka bacak (hamstring)", "Kalça", "Bel kasları", "Sırt"),
+        sets = 3, reps = 10,
+        cameraAngle = CameraAngle.SIDE,
+        setup = "Telefonu bel hizasında, 2-3 metre uzağa koy ve kameraya yan dön.",
+        steps = listOf(
+            "Ayakların kalça genişliğinde, dambıllar uyluklarının önünde dik dur.",
+            "Dizlerini hafifçe bük ve bu açıyı sabit tut.",
+            "Kalçanı geriye iterek gövdeni öne eğ; ağırlıklar bacaklarına yakın insin.",
+            "Arka bacağında gerilme hissedince kalçanı öne iterek dik konuma dön.",
+        ),
+        cautions = listOf(
+            "Sırtını yuvarlama, bel her zaman düz kalsın.",
+            "Squat'a çevirme: dizler fazla bükülmesin, hareket kalçadan.",
+            "Ağırlıkları bacaklardan uzaklaştırma.",
+        ),
+        tips = listOf(
+            "Kalçanla arkandaki duvara dokunmaya çalıştığını düşün.",
+            "İnişi 2-3 saniyede yapmak arka bacağı daha çok çalıştırır.",
+            "Yukarıda kalçanı sık ama geriye yaslanma.",
+        ),
+        rule = ExerciseRule(
+            primary = motion(HIP, Direction.DECREASING, SideMode.MIN, enterAt = 150f, targetAt = 115f, exitAt = 162f),
+            depthMessage = "Kalçanı daha geriye it, gövden daha çok eğilsin",
+            checks = listOf(
+                FormCheck("Dizlerini fazla bükme, hareket kalçadan olsun") { f, _ ->
+                    f.sideAngle(KNEE)?.let { it >= 135f }
+                },
+            ),
+            minRepMs = 1000,
+        ),
+        demo = DemoAnimation(
+            view = DemoView.SIDE,
+            start = keyframe(DemoView.SIDE) { },
+            end = keyframe(DemoView.SIDE) { spine = -12f; thigh = 78f; shin = 95f },
+            anchor = DJ.AN_L,
+            toEndCue = "Kalçayı geri it, eğil",
+            toStartCue = "Kalçayı öne it, kalk",
+            dumbbells = true,
+        ),
+        upperName = "ROMANIAN DEADLIFT",
+    ),
+    Exercise(
         id = "shoulder-press",
         name = "Omuz Press",
         category = Category.UPPER,

@@ -22,6 +22,13 @@ data class WorkoutSession(
     val startedAt: Long,
     val durationMs: Long,
     val reps: List<RepRecord>,
+    /** Bir programın parçası olarak yapıldıysa program bilgileri. */
+    val planId: String? = null,
+    val planName: String? = null,
+    /** Programın aynı gün yapılan tek bir uygulaması; setler bununla gruplanır. */
+    val planRunId: String? = null,
+    /** 1'den başlayan set numarası. */
+    val setNumber: Int? = null,
 ) {
     val correctCount: Int get() = reps.count { it.correct }
     val incorrectCount: Int get() = reps.size - correctCount
@@ -41,12 +48,13 @@ object HistoryRepository {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val _sessions = MutableStateFlow<List<WorkoutSession>>(emptyList())
     val sessions: StateFlow<List<WorkoutSession>> = _sessions.asStateFlow()
+    private const val FILE = "history.json"
     private var loaded = false
 
     fun load() {
         if (loaded) return
         loaded = true
-        val text = runCatching { readHistoryFile() }.getOrNull() ?: return
+        val text = runCatching { readAppFile(FILE) }.getOrNull() ?: return
         val file = runCatching { json.decodeFromString<HistoryFile>(text) }.getOrNull() ?: return
         _sessions.value = file.sessions.sortedByDescending { it.startedAt }
     }
@@ -65,6 +73,6 @@ object HistoryRepository {
     fun find(id: String): WorkoutSession? = _sessions.value.firstOrNull { it.id == id }
 
     private fun save() {
-        runCatching { writeHistoryFile(json.encodeToString(HistoryFile(sessions = _sessions.value))) }
+        runCatching { writeAppFile(FILE, json.encodeToString(HistoryFile(sessions = _sessions.value))) }
     }
 }

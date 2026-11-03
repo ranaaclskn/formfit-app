@@ -10,15 +10,14 @@ internal object AndroidContext {
     lateinit var app: Context
 }
 
-private fun historyFile() = File(AndroidContext.app.filesDir, "history.json")
+actual fun readAppFile(name: String): String? =
+    File(AndroidContext.app.filesDir, name).takeIf { it.exists() }?.readText()
 
-actual fun readHistoryFile(): String? = historyFile().takeIf { it.exists() }?.readText()
-
-actual fun writeHistoryFile(content: String) {
-    // Önce geçici dosyaya yaz, sonra taşı: yazarken uygulama kapanırsa geçmiş bozulmasın
-    val tmp = File(AndroidContext.app.filesDir, "history.json.tmp")
+actual fun writeAppFile(name: String, content: String) {
+    // Önce geçici dosyaya yaz, sonra taşı: yazarken uygulama kapanırsa dosya bozulmasın
+    val tmp = File(AndroidContext.app.filesDir, "$name.tmp")
     tmp.writeText(content)
-    tmp.renameTo(historyFile())
+    tmp.renameTo(File(AndroidContext.app.filesDir, name))
 }
 
 actual fun nowMillis(): Long = System.currentTimeMillis()
