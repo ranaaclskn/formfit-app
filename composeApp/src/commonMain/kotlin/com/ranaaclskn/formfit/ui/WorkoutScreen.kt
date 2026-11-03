@@ -1,6 +1,9 @@
 package com.ranaaclskn.formfit.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.layout.fillMaxHeight
+import com.ranaaclskn.formfit.analysis.restSecondsFor
+import com.ranaaclskn.formfit.analysis.restCue
 import androidx.compose.foundation.clickable
 import com.ranaaclskn.formfit.analysis.VoiceCoach
 import androidx.compose.runtime.DisposableEffect
@@ -186,6 +189,9 @@ fun WorkoutScreen(
             durationMs = durationAtEnd,
             saved = saved != null,
             onRestart = if (plan == null) ({ saved = null; stage = Stage.COUNTDOWN }) else null,
+            // Programda setten sonra dinlenme sayacı
+            restSeconds = plan?.let { restSecondsFor(exercise, it.targetReps) },
+            voiceOn = voiceOn,
             onClose = onClose,
         )
         return
@@ -320,6 +326,73 @@ private fun Counter(label: String, value: Int, dot: Color, modifier: Modifier) {
     }
 }
 
+/** Setler arası dinlenme geri sayımı; belli saniyelerde sesli uyarır. */
+@Composable
+private fun RestTimer(initial: Int, voiceOn: Boolean) {
+    var total by remember { mutableIntStateOf(initial) }
+    var left by remember { mutableIntStateOf(initial) }
+    var running by remember { mutableStateOf(true) }
+    LaunchedEffect(running) {
+        // Set sonu konuşması bitsin diye ilk uyarı birkaç saniye sonra
+        while (running && left > 0) {
+            delay(1000)
+            left -= 1
+            if (voiceOn) restCue(left, total)?.let { Speech.speak(it) }
+        }
+        if (left <= 0) running = false
+    }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .background(FfColors.Accent)
+            .padding(20.dp),
+    ) {
+        Overline(if (left > 0) "Dinlenme" else "Dinlenme bitti", color = FfColors.OnAccent.copy(alpha = 0.55f))
+        Text(
+            if (left > 0) formatDuration(left * 1000L) else "HAZIRSIN",
+            style = MaterialTheme.typography.displayLarge,
+            color = FfColors.OnAccent,
+        )
+        Spacer(Modifier.height(10.dp))
+        Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)).background(FfColors.OnAccent.copy(alpha = 0.15f))) {
+            Box(
+                Modifier
+                    .fillMaxWidth(if (total == 0) 0f else (left.toFloat() / total).coerceIn(0f, 1f))
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(50))
+                    .background(FfColors.OnAccent),
+            )
+        }
+        if (left > 0) {
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "+30 SN",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = FfColors.OnAccent,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .border(1.dp, FfColors.OnAccent.copy(alpha = 0.3f), RoundedCornerShape(50))
+                        .clickable { left += 30; total += 30 }
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+                Text(
+                    "ATLA",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = FfColors.OnAccent,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .border(1.dp, FfColors.OnAccent.copy(alpha = 0.3f), RoundedCornerShape(50))
+                        .clickable { left = 0; running = false }
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun MiniDemo(exercise: Exercise) {
     var large by remember { mutableStateOf(false) }
@@ -427,6 +500,8 @@ private fun SummaryView(
     saved: Boolean,
     onRestart: (() -> Unit)?,
     onClose: () -> Unit,
+    restSeconds: Int? = null,
+    voiceOn: Boolean = true,
 ) {
     val correct = reps.count { it.correct }
     val accuracy = if (reps.isEmpty()) 0 else correct * 100 / reps.size
@@ -440,6 +515,7 @@ private fun SummaryView(
             .verticalScroll(rememberScrollState()),
     ) {
         ScreenHeader("Set bitti · ${exercise.titleUpper()}", "%$accuracy doğru")
+        if (restSeconds != null) RestTimer(restSeconds, voiceOn)
         StatsRow(
             listOf(
                 "Doğru" to "$correct",
