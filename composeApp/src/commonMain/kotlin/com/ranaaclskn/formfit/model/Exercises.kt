@@ -68,7 +68,7 @@ private val torsoVisible = intArrayOf(LEFT_SHOULDER, RIGHT_SHOULDER, LEFT_HIP, R
 private fun com.ranaaclskn.formfit.model.PoseFrame.leanOrNull(): Float? =
     if (isVisible(*torsoVisible, min = 0.3f)) torsoLean() else null
 
-val EXERCISES: List<Exercise> = listOf(
+private val BASE_EXERCISES: List<Exercise> = listOf(
     Exercise(
         id = "squat",
         name = "Squat",
@@ -1196,6 +1196,146 @@ val EXERCISES: List<Exercise> = listOf(
         upperName = "BULGARIAN SPLIT SQUAT",
         gear = Gear.DUMBBELL,
     ),
-).sortedBy { it.category.ordinal } // Kategoriler arka arkaya gelsin, numaralar sıralı olsun
+)
+
+// Kategoriler arka arkaya gelsin, numaralar sıralı olsun
+val EXERCISES: List<Exercise> = (BASE_EXERCISES + moreExercises()).sortedBy { it.category.ordinal }
+
+private fun base(id: String): Exercise = BASE_EXERCISES.first { it.id == id }
+
+private fun DemoAnimation.copy(dumbbells: Boolean = this.dumbbells) =
+    DemoAnimation(view, start, end, anchor, toEndCue, toStartCue, cycleMs, holdStart, holdEnd, dumbbells)
+
+/** Kısa tanımlı ek hareketler. Kuralı aynı olan hareketler mevcut kuralı paylaşır. */
+private fun moreExercises(): List<Exercise> {
+    fun ex(
+        id: String, name: String, upper: String, cat: Category, gear: Gear, muscles: String, sets: Int, reps: Int,
+        angle: CameraAngle, setup: String, steps: String, cautions: String, tips: String,
+        rule: ExerciseRule, demo: DemoAnimation,
+    ) = Exercise(
+        id, name, cat, muscles.split(", "), sets, reps, angle, setup,
+        steps.split(" | "), cautions.split(" | "), tips.split(" | "), rule, demo, upper, gear,
+    )
+    val side = "Telefonu bel hizasında, 2-3 metre uzağa koy ve kameraya yan dön."
+    val front = "Telefonu göğüs hizasında, 2-3 metre uzağa koy ve kameraya önden bak."
+    val lying = "Telefonu yere, 2 metre uzağa koy; yatarken vücudun yandan görünsün."
+    val armUp = ExerciseRule(
+        primary = motion(ELBOW, Direction.INCREASING, SideMode.MAX, enterAt = 100f, targetAt = 155f, exitAt = 80f),
+        depthMessage = "Kollarını başının üstünde tamamen aç",
+        gate = { f ->
+            (f.isVisible(LEFT_ELBOW, LEFT_SHOULDER) && f[LEFT_ELBOW].y < f[LEFT_SHOULDER].y) ||
+                (f.isVisible(RIGHT_ELBOW, RIGHT_SHOULDER) && f[RIGHT_ELBOW].y < f[RIGHT_SHOULDER].y)
+        },
+        gateMessage = "Dirseklerini başının yanında yukarıda tut",
+        checks = listOf(FormCheck("Belini kavislendirme, gövden dik kalsın") { f, _ -> f.leanOrNull()?.let { it <= 20f } }),
+        minRepMs = 900,
+    )
+    val raise = ExerciseRule(
+        primary = motion(SHOULDER_ABDUCTION, Direction.INCREASING, SideMode.MAX, enterAt = 35f, targetAt = 75f, exitAt = 25f),
+        depthMessage = "Kollarını omuz hizasına kadar kaldır",
+        checks = listOf(
+            FormCheck("Kolları omuz hizasından yukarı kaldırma", minFailRatio = 0.2f) { f, _ ->
+                f.sideAngle(SHOULDER_ABDUCTION)?.let { it <= 105f }
+            },
+            FormCheck("Gövdeni sallama") { f, ctx -> f.leanOrNull()?.let { abs(it - ctx.startTorsoLean) <= 10f } },
+        ),
+        minRepMs = 1000,
+    )
+    return listOf(
+        ex("goblet-squat", "Goblet Squat", "GOBLET SQUAT", Category.LOWER, Gear.DUMBBELL, "Ön bacak, Kalça, Core", 3, 12,
+            CameraAngle.SIDE, side,
+            "Dambılı iki elinle göğsünün önünde dik tut. | Kalçanı geriye ve aşağı indir, uyluklar yere paralel olsun. | Topuklarından iterek kalk.",
+            "Dambılı göğsünden uzaklaştırma. | Dizlerin içe kapanmasın.",
+            "Dirseklerinle dizlerini dışa itmek derinliği artırır. | Squat öğrenmek için en kolay başlangıçtır.",
+            base("squat").rule, base("squat").demo.copy(dumbbells = true)),
+        ex("sumo-squat", "Sumo Squat", "SUMO SQUAT", Category.LOWER, Gear.DUMBBELL, "İç bacak, Kalça, Ön bacak", 3, 12,
+            CameraAngle.SIDE, side,
+            "Ayaklarını omuz genişliğinin iki katı aç, ayak uçları dışa baksın. | Dambılı kolların arasında sarkıt. | Gövden dik, dizlerini ayak yönünde bükerek in ve kalk.",
+            "Dizlerin içe kapanmasın. | Gövdeni öne eğme.",
+            "Yukarıda kalçanı sık. | Geniş duruş iç bacağı daha çok çalıştırır.",
+            base("squat").rule, base("squat").demo.copy(dumbbells = true)),
+        ex("reverse-lunge", "Reverse Lunge", "REVERSE LUNGE", Category.LOWER, Gear.BODYWEIGHT, "Kalça, Ön bacak, Arka bacak", 3, 10,
+            CameraAngle.SIDE, side,
+            "Dik dur, bir ayağınla geriye büyük bir adım at. | İki dizini bükerek arka dizin yere yaklaşana kadar in. | Ön topuktan iterek başlangıca dön.",
+            "Gövdeni öne eğme. | Ön dizin içe kaymasın.",
+            "Geriye adım dizler için öne lunge'dan daha rahattır. | Bacakları sırayla değiştir.",
+            base("lunge").rule, base("lunge").demo),
+        ex("arnold-press", "Arnold Press", "ARNOLD PRESS", Category.UPPER, Gear.DUMBBELL, "Omuz (deltoid), Arka kol", 3, 10,
+            CameraAngle.FRONT, front,
+            "Dambılları avuçların sana bakacak şekilde çene hizasında tut. | Yukarı iterken bileklerini döndür, avuçların öne baksın. | Aynı yoldan döndürerek indir.",
+            "Belini kavislendirme. | Ağırlıkları savurma.",
+            "Dönüş hareketi omzun üç bölümünü de çalıştırır. | Hafif ağırlıkla başla.",
+            base("shoulder-press").rule, base("shoulder-press").demo),
+        ex("front-raise", "Önden Kaldırma (Front Raise)", "ÖNDEN KALDIRMA", Category.UPPER, Gear.DUMBBELL, "Ön omuz, Göğüs üstü", 3, 12,
+            CameraAngle.SIDE, side,
+            "Dambılları uyluklarının önünde tut. | Kollarını dirsekler hafif bükük, öne doğru omuz hizasına kaldır. | Yavaşça indir.",
+            "Omuz hizasından yukarı kaldırma. | Gövdeni sallama.",
+            "Kolları sırayla kaldırmak dengeyi kolaylaştırır. | İnişi yavaş yap.",
+            raise,
+            DemoAnimation(DemoView.SIDE, keyframe(DemoView.SIDE) { }, keyframe(DemoView.SIDE) { upperArm = 0f; forearm = 0f },
+                DJ.AN_L, "Öne, omuz hizasına kaldır", "Yavaşça indir", dumbbells = true)),
+        ex("upright-row", "Upright Row", "UPRIGHT ROW", Category.UPPER, Gear.DUMBBELL, "Yan omuz, Trapez", 3, 12,
+            CameraAngle.FRONT, front,
+            "Dambılları uyluklarının önünde tut. | Dirseklerini yanlara ve yukarı, omuz hizasına kadar kaldır. | Yavaşça indir.",
+            "Dirsekleri omuz hizasından yukarı kaldırma. | Bileklerini fazla bükme.",
+            "Hareketi dirseklerle yönlendir. | Geniş tutuş omuzu daha rahat ettirir.",
+            raise,
+            DemoAnimation(DemoView.FRONT, keyframe(DemoView.FRONT) { upperArm = 95f; forearm = 92f; thigh = 95f; shin = 90f },
+                keyframe(DemoView.FRONT) { upperArm = 175f; forearm = 40f; thigh = 95f; shin = 90f },
+                DJ.HIP_C, "Dirsekleri yukarı çek", "Yavaşça indir", dumbbells = true)),
+        ex("overhead-triceps", "Overhead Triceps Extension", "OVERHEAD TRICEPS", Category.UPPER, Gear.DUMBBELL, "Arka kol (triceps)", 3, 12,
+            CameraAngle.SIDE, side,
+            "Dambılı iki elinle başının üstünde tut. | Dirsekler sabit, dambılı başının arkasına indir. | Kollarını yukarı doğru tamamen aç.",
+            "Dirseklerini yana açma. | Belini kavislendirme.",
+            "Oturarak yapmak beli korur. | İnişte arka kolda esneme hisset.",
+            armUp,
+            DemoAnimation(DemoView.SIDE, keyframe(DemoView.SIDE) { upperArm = -95f; forearm = 120f },
+                keyframe(DemoView.SIDE) { upperArm = -95f; forearm = -95f },
+                DJ.AN_L, "Kolları yukarı aç", "Başın arkasına indir", dumbbells = true)),
+        ex("chest-press-machine", "Chest Press Makinesi", "CHEST PRESS", Category.UPPER, Gear.MACHINE, "Göğüs, Arka kol, Ön omuz", 3, 12,
+            CameraAngle.SIDE, "Telefonu makinenin yanına, 2 metre uzağa, oturma hizasında koy.",
+            "Sırtını yasla, tutamakları göğüs hizasında kavra. | Kolların neredeyse düzleşene kadar ileri it. | Kontrollü şekilde geri gel.",
+            "Sırtını pedden ayırma. | Ağırlığı birden bırakma.",
+            "Koltuk yüksekliğini tutamaklar göğüs ortasına gelecek şekilde ayarla. | İterken nefes ver.",
+            ExerciseRule(
+                primary = motion(ELBOW, Direction.DECREASING, SideMode.MIN, enterAt = 140f, targetAt = 100f, exitAt = 155f),
+                depthMessage = "Tutamakları göğüs hizasına kadar geri getir",
+                gate = { f -> f.leanOrNull()?.let { it < 40f } ?: false },
+                gateMessage = "Makineye otur, yandan görün",
+                minRepMs = 1000,
+            ),
+            DemoAnimation(DemoView.SIDE, keyframe(DemoView.SIDE) { upperArm = 0f; forearm = 0f; thigh = 0f; shin = 90f },
+                keyframe(DemoView.SIDE) { upperArm = 160f; forearm = 20f; thigh = 0f; shin = 90f },
+                DJ.HIP_C, "Kontrollü geri gel", "İleri it")),
+        ex("sit-up", "Mekik (Sit-up)", "MEKİK (SIT-UP)", Category.CORE, Gear.BODYWEIGHT, "Karın, Kalça fleksörleri", 3, 15,
+            CameraAngle.SIDE, lying,
+            "Sırt üstü yat, dizlerini bük, ayakların yerde olsun. | Karnını sıkarak gövdeni dizlerine doğru kaldır. | Kontrollü şekilde geri yat.",
+            "Ellerinle boynunu çekme. | Hızla savurarak kalkma.",
+            "Ayaklarını bir yere sabitlemek hareketi kolaylaştırır. | Yukarıda nefes ver.",
+            ExerciseRule(
+                primary = motion(HIP, Direction.DECREASING, SideMode.MIN, enterAt = 110f, targetAt = 85f, exitAt = 118f),
+                depthMessage = "Gövdeni dizlerine doğru daha çok kaldır",
+                minRepMs = 900,
+            ),
+            DemoAnimation(DemoView.SIDE, keyframe(DemoView.SIDE) { spine = 180f; upperArm = 0f; forearm = 0f; thigh = -55f; shin = 50f },
+                keyframe(DemoView.SIDE) { spine = 230f; upperArm = 0f; forearm = 0f; thigh = -55f; shin = 50f },
+                DJ.HIP_C, "Gövdeyi kaldır", "Kontrollü yat")),
+        ex("leg-raise", "Bacak Kaldırma (Leg Raise)", "BACAK KALDIRMA", Category.CORE, Gear.BODYWEIGHT, "Alt karın, Kalça fleksörleri", 3, 12,
+            CameraAngle.SIDE, lying,
+            "Sırt üstü yat, ellerini yanlarına koy. | Bacaklarını düz tutarak dik olana kadar kaldır. | Yere değdirmeden yavaşça indir.",
+            "Belini yerden kaldırma. | Bacakları düşürerek indirme.",
+            "Zorlanırsan dizlerini bük. | İnişi 3 saniyede yap.",
+            ExerciseRule(
+                primary = motion(HIP, Direction.DECREASING, SideMode.MIN, enterAt = 150f, targetAt = 100f, exitAt = 162f),
+                depthMessage = "Bacaklarını dik olana kadar kaldır",
+                gate = { f -> f.leanOrNull()?.let { it > 60f } ?: false },
+                gateMessage = "Sırt üstü yat, yandan görün",
+                minRepMs = 1000,
+            ),
+            DemoAnimation(DemoView.SIDE, keyframe(DemoView.SIDE) { spine = 180f; upperArm = 0f; forearm = 0f; thigh = 0f; shin = 0f; foot = -90f },
+                keyframe(DemoView.SIDE) { spine = 180f; upperArm = 0f; forearm = 0f; thigh = -85f; shin = -85f; foot = 5f },
+                DJ.NECK, "Bacakları kaldır", "Yavaşça indir")),
+    )
+}
 
 fun exerciseById(id: String): Exercise? = EXERCISES.firstOrNull { it.id == id }
