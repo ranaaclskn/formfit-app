@@ -1,6 +1,8 @@
 package com.ranaaclskn.formfit.ui
 
 import androidx.compose.animation.animateColorAsState
+import com.ranaaclskn.formfit.analysis.checkPlacement
+import com.ranaaclskn.formfit.analysis.Placement
 import androidx.compose.foundation.layout.fillMaxHeight
 import com.ranaaclskn.formfit.analysis.restSecondsFor
 import com.ranaaclskn.formfit.analysis.restCue
@@ -95,6 +97,8 @@ private class WorkoutController(val exercise: Exercise, val plan: PlanContext?, 
     var incorrect by mutableIntStateOf(0)
     var feedback by mutableStateOf(counter.feedback)
     var lastRep by mutableStateOf<RepResult?>(null)
+    /** Kamera yerleşimi: başlamadan önce kadraj ve açı kontrolü. */
+    var placement by mutableStateOf(checkPlacement(null, exercise.cameraAngle))
     val reps = mutableStateListOf<RepResult>()
     var startedAt = 0L
     private var startMark = clock
@@ -113,7 +117,12 @@ private class WorkoutController(val exercise: Exercise, val plan: PlanContext?, 
 
     fun onPose(f: PoseFrame?, counting: Boolean) {
         frame = f
-        if (!counting) return
+        if (!counting) {
+            val p = checkPlacement(f, exercise.cameraAngle)
+            if (p.message != placement.message) coach.onPlacement(p.message)
+            placement = p
+            return
+        }
         val rep = counter.process(f, clock.elapsedNow().inWholeMilliseconds)
         val changed = counter.feedback != feedback
         feedback = counter.feedback
@@ -265,6 +274,7 @@ fun WorkoutScreen(
         when (stage) {
             Stage.SETUP -> SetupCard(
                 exercise,
+                placement = controller.placement,
                 onStart = { stage = Stage.COUNTDOWN },
                 onShowHowTo = onShowHowTo,
                 modifier = Modifier.align(Alignment.BottomCenter),
@@ -394,6 +404,18 @@ private fun RestTimer(initial: Int, voiceOn: Boolean) {
 }
 
 @Composable
+private fun CheckLine(label: String, ok: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.size(22.dp).clip(CircleShape).background(if (ok) FfColors.Good else FfColors.Border),
+            contentAlignment = Alignment.Center,
+        ) { Text(if (ok) "✓" else "–", color = FfColors.OnAccent, style = MaterialTheme.typography.labelMedium) }
+        Spacer(Modifier.width(10.dp))
+        Text(label, style = MaterialTheme.typography.titleSmall, color = if (ok) FfColors.Text else FfColors.TextMuted)
+    }
+}
+
+@Composable
 private fun MiniDemo(exercise: Exercise) {
     var large by remember { mutableStateOf(false) }
     Column(
@@ -464,7 +486,13 @@ private fun FeedbackBanner(feedback: LiveFeedback) {
 }
 
 @Composable
-private fun SetupCard(exercise: Exercise, onStart: () -> Unit, onShowHowTo: () -> Unit, modifier: Modifier) {
+private fun SetupCard(
+    exercise: Exercise,
+    placement: Placement,
+    onStart: () -> Unit,
+    onShowHowTo: () -> Unit,
+    modifier: Modifier,
+) {
     Column(
         modifier
             .fillMaxWidth()
@@ -479,6 +507,19 @@ private fun SetupCard(exercise: Exercise, onStart: () -> Unit, onShowHowTo: () -
         Overline("Hazırlık · ${exercise.cameraAngle.title}")
         Text("KAMERAYI YERLEŞTİR", style = MaterialTheme.typography.headlineLarge, color = FfColors.Text)
         Text(exercise.setup, style = MaterialTheme.typography.bodyMedium, color = FfColors.TextSecondary)
+        // Canlı yerleşim kontrolü
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(FfColors.SurfaceHigh)
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            CheckLine("Tüm vücut kadrajda", placement.bodyVisible)
+            CheckLine(exercise.cameraAngle.title.replace(" çek", "") + " açı", placement.angleOk == true)
+            Text(placement.message, style = MaterialTheme.typography.bodySmall, color = if (placement.ok) FfColors.Good else FfColors.Warn)
+        }
         Text(
             "Başla'ya bastıktan sonra 5 saniyen var. İskelet çizgileri tüm vücudunda görünüyorsa hazırsın.",
             style = MaterialTheme.typography.bodySmall,

@@ -32,6 +32,9 @@ class VoiceCoach(
         }
     }
 
+    /** Başlamadan önce kamera yerleşimi değişti: kadraj/açı yönlendirmesi. */
+    fun onPlacement(message: String) = speak(message, minGapSameMs = 6000)
+
     fun onTargetReached() {
         if (targetAnnounced) return
         targetAnnounced = true
