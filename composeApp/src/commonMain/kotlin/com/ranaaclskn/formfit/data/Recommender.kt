@@ -114,7 +114,9 @@ private fun exercisesPerDay(minutes: Int): Int = when {
  */
 fun recommend(req: RecommendationRequest): Recommendation {
     val allowed: (String) -> Boolean = { id ->
-        exerciseById(id) != null && (req.equipment == Equipment.DUMBBELLS || id !in DUMBBELL_EXERCISES)
+        val ex = exerciseById(id)
+        // Öneriler ev için: salon aletli hareketler (makine, kablo, barbell) önerilmez
+        ex != null && !ex.gear.isGym && (req.equipment == Equipment.DUMBBELLS || id !in DUMBBELL_EXERCISES)
     }
     val perDay = exercisesPerDay(req.minutes)
     val days = split(req.daysPerWeek, req.equipment)

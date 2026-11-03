@@ -101,7 +101,7 @@ fun ExerciseDetailScreen(exercise: Exercise, onBack: () -> Unit, onStartWorkout:
             ) {
                 InfoBox("Hedef", "${exercise.sets}×${exercise.reps}", Modifier.weight(1f))
                 InfoBox("Kamera", exercise.cameraAngle.title.substringBefore(" ").trUpper(), Modifier.weight(1f))
-                InfoBox("Kas grubu", "${exercise.muscles.size}", Modifier.weight(1f))
+                InfoBox("Alet", exercise.gear.short.trUpper(), Modifier.weight(1f))
             }
 
             FlowRow(

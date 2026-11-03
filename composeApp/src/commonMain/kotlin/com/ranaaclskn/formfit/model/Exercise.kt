@@ -11,6 +11,19 @@ enum class Category(val title: String) {
     CARDIO("Kardiyo"),
 }
 
+/** Hareketin hangi aletle yapıldığı. */
+enum class Gear(val title: String, val short: String) {
+    BODYWEIGHT("Vücut ağırlığı", "Yok"),
+    DUMBBELL("Dambıl", "Dambıl"),
+    BARBELL("Barbell", "Barbell"),
+    MACHINE("Makine", "Makine"),
+    CABLE("Kablo", "Kablo"),
+    ;
+
+    /** Spor salonunda bulunan aletlerden biri mi? */
+    val isGym: Boolean get() = this == BARBELL || this == MACHINE || this == CABLE
+}
+
 enum class CameraAngle(val title: String) {
     SIDE("Yandan çek"),
     FRONT("Önden çek"),
@@ -36,4 +49,5 @@ class Exercise(
     val demo: DemoAnimation,
     /** Büyük harfli başlık; İngilizce isimlerde Türkçe "İ" kuralı uygulanmasın diye elle verilir. */
     val upperName: String? = null,
+    val gear: Gear = Gear.BODYWEIGHT,
 )

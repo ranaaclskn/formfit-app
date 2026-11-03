@@ -45,6 +45,8 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -83,18 +85,46 @@ fun PlansScreen(onOpen: (String) -> Unit, onCreate: () -> Unit, onRecommend: () 
     val plans by PlanRepository.plans.collectAsState()
     val sessions by HistoryRepository.sessions.collectAsState()
     val saved by PlanRepository.lastSavedMessage.collectAsState()
-    // Kendi ve önerilen programlar önce, hazır programlar en sonda
-    val groups = plans.groupBy { it.group.ifBlank { "Programlarım" } }
-        .toList()
-        .sortedBy { (g, _) -> if (g == PRESET_GROUP) 1 else 0 }
+    var section by rememberSaveable { mutableStateOf(PlanSection.MINE) }
+    val mine = plans.filter { it.isOwn() }
+    val recommended = plans.filter { !it.isOwn() && it.group != PRESET_GROUP }
+    val presets = plans.filter { it.group == PRESET_GROUP }
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 28.dp)) {
         item {
             ScreenHeader(
                 "Çalışma planın",
-                "Programlarım",
-                "Haftalık günlerini oluştur: itiş, çekiş, bacak… Her günü kamerayla yap, doğru ve yanlış tekrarlarını takip et.",
+                "Programlar",
+                "Kendi programını oluştur, hareketleri seç ve istediğin hareketten form kontrolüne başla.",
             )
+        }
+        item {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 6.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(FfColors.Surface)
+                    .border(1.dp, FfColors.Border, RoundedCornerShape(50))
+                    .padding(4.dp),
+            ) {
+                PlanSection.entries.forEach { sec ->
+                    val selected = sec == section
+                    Text(
+                        sec.title.trUpper(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (selected) FfColors.OnAccent else FfColors.TextSecondary,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(50))
+                            .background(if (selected) FfColors.Accent else Color.Transparent)
+                            .clickable { section = sec }
+                            .padding(vertical = 11.dp),
+                    )
+                }
+            }
         }
         if (saved != null) {
             item {
@@ -114,21 +144,8 @@ fun PlansScreen(onOpen: (String) -> Unit, onCreate: () -> Unit, onRecommend: () 
                 }
             }
         }
-        item { RecommendCard(onRecommend) }
-        item { CreatePlanCard(onCreate) }
-        groups.forEach { (group, list) ->
-            item(key = "g-$group") {
-                Row(
-                    Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Overline(group, color = FfColors.Text)
-                    Spacer(Modifier.width(10.dp))
-                    HorizontalDivider(Modifier.weight(1f), color = FfColors.Border)
-                    Spacer(Modifier.width(10.dp))
-                    Overline("${list.size} gün")
-                }
-            }
+
+        fun planItems(list: List<WorkoutPlan>) {
             items(list, key = { it.id }) { plan ->
                 val last = planRuns(plan.id, sessions).firstOrNull()
                 PlanCard(plan, last?.let { "Son: ${formatDateTime(it.startedAt).substringBefore(",")} · %${it.accuracy} doğru" }) {
@@ -136,6 +153,78 @@ fun PlansScreen(onOpen: (String) -> Unit, onCreate: () -> Unit, onRecommend: () 
                 }
             }
         }
+
+        when (section) {
+            PlanSection.MINE -> {
+                item { CreatePlanCard(onCreate) }
+                if (mine.isEmpty()) {
+                    item {
+                        InfoCard(
+                            "Henüz kendi programın yok",
+                            "Yukarıdan yeni bir program oluştur ya da Önerilen / Hazır sekmesindeki bir programı açıp \"Programıma ekle\" de.",
+                        )
+                    }
+                } else {
+                    item(key = "h-mine") { GroupHeader("Benim programım", "${mine.size} gün") }
+                    planItems(mine)
+                }
+            }
+            PlanSection.RECOMMENDED -> {
+                item { RecommendCard(onRecommend) }
+                recommended.groupBy { it.group }.forEach { (group, list) ->
+                    item(key = "g-$group") { GroupHeader(group, "${list.size} gün") }
+                    planItems(list)
+                }
+                if (recommended.isEmpty()) {
+                    item { InfoCard("Henüz önerilen program yok", "Hedefini ve seviyeni seç, sana uygun haftalık programı hazırlayalım.") }
+                }
+            }
+            PlanSection.READY -> {
+                item(key = "h-ready") { GroupHeader(PRESET_GROUP, "${presets.size} gün") }
+                planItems(presets)
+            }
+        }
+    }
+}
+
+private enum class PlanSection(val title: String) {
+    MINE("Benim Programım"),
+    RECOMMENDED("Önerilen"),
+    READY("Hazır"),
+}
+
+/** Kullanıcının kendi oluşturduğu (ya da kendine kopyaladığı) program mı? */
+private fun WorkoutPlan.isOwn(): Boolean = group.isBlank() || group == MY_GROUP
+
+private const val MY_GROUP = "Programlarım"
+
+@Composable
+private fun GroupHeader(title: String, trailing: String) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Overline(title, color = FfColors.Text)
+        Spacer(Modifier.width(10.dp))
+        HorizontalDivider(Modifier.weight(1f), color = FfColors.Border)
+        Spacer(Modifier.width(10.dp))
+        Overline(trailing)
+    }
+}
+
+@Composable
+private fun InfoCard(title: String, text: String) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .border(1.dp, FfColors.Border, RoundedCornerShape(22.dp))
+            .padding(22.dp),
+    ) {
+        Text(title.trUpper(), style = MaterialTheme.typography.titleLarge, color = FfColors.Text)
+        Spacer(Modifier.height(6.dp))
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = FfColors.TextSecondary)
     }
 }
 
@@ -254,6 +343,7 @@ fun PlanDetailScreen(
     onEdit: () -> Unit,
     onStart: (runId: String) -> Unit,
     onOpenRun: (runId: String) -> Unit,
+    onStartFrom: (runId: String, itemIndex: Int) -> Unit,
 ) {
     val plans by PlanRepository.plans.collectAsState()
     val sessions by HistoryRepository.sessions.collectAsState()
@@ -293,8 +383,26 @@ fun PlanDetailScreen(
                     "Son doğruluk" to (runs.firstOrNull()?.let { "%${it.accuracy}" } ?: "–"),
                 ),
             )
+            if (!plan.isOwn()) {
+                SecondaryButton(
+                    "Programıma ekle",
+                    onClick = {
+                        PlanRepository.addAll(
+                            listOf(plan.copy(id = newId("plan"), group = "")),
+                            "${plan.name} Benim Programım'a eklendi",
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 14.dp),
+                )
+            }
             Spacer(Modifier.height(18.dp))
             SectionTitle("Hareketler")
+            Text(
+                "İstediğin hareketin yanındaki ▶ ile form kontrolüne doğrudan o hareketten başla.",
+                style = MaterialTheme.typography.bodySmall,
+                color = FfColors.TextMuted,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            )
             plan.items.forEachIndexed { i, item ->
                 val ex = exerciseById(item.exerciseId) ?: return@forEachIndexed
                 Row(
@@ -317,6 +425,16 @@ fun PlanDetailScreen(
                         Overline(ex.category.title)
                     }
                     Text("${item.sets} × ${item.reps}", style = MaterialTheme.typography.headlineMedium, color = FfColors.Text)
+                    Spacer(Modifier.width(12.dp))
+                    // Bu hareketten form kontrolüne hemen başla
+                    Box(
+                        Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(FfColors.Accent)
+                            .clickable { onStartFrom(newId("run"), i) },
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Filled.PlayArrow, "${ex.name} ile başla", tint = FfColors.OnAccent, modifier = Modifier.size(22.dp)) }
                 }
             }
             if (runs.isNotEmpty()) {
@@ -408,7 +526,7 @@ private fun androidx.compose.foundation.layout.BoxScope.BottomAction(content: @C
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun PlanEditScreen(planId: String?, onDone: () -> Unit, onCancel: () -> Unit) {
+fun PlanEditScreen(planId: String?, onDone: (planId: String, start: Boolean) -> Unit, onCancel: () -> Unit) {
     val existing = remember(planId) { planId?.let { PlanRepository.find(it) } }
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var description by remember { mutableStateOf(existing?.description ?: "") }
@@ -510,22 +628,29 @@ fun PlanEditScreen(planId: String?, onDone: () -> Unit, onCancel: () -> Unit) {
             }
         }
         BottomAction {
-            PrimaryButton(
-                if (canSave) "Kaydet" else if (name.isBlank()) "Program adı yaz" else "Hareket ekle",
-                onClick = {
-                    if (!canSave) return@PrimaryButton
-                    PlanRepository.upsert(
-                        WorkoutPlan(
-                            id = existing?.id ?: newId("plan"),
-                            name = name.trim(),
-                            description = description.trim(),
-                            items = planItems.toList(),
-                        )
-                    )
-                    onDone()
-                },
-                modifier = Modifier.fillMaxWidth(),
-            )
+            fun save(start: Boolean) {
+                val plan = WorkoutPlan(
+                    id = existing?.id ?: newId("plan"),
+                    name = name.trim(),
+                    description = description.trim(),
+                    items = planItems.toList(),
+                    group = existing?.group ?: "",
+                )
+                PlanRepository.upsert(plan)
+                onDone(plan.id, start)
+            }
+            if (canSave) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SecondaryButton("Kaydet", { save(false) }, Modifier.weight(1f))
+                    PrimaryButton("Kaydet ve başla", { save(true) }, Modifier.weight(1.4f), icon = Icons.Filled.PlayArrow)
+                }
+            } else {
+                SecondaryButton(
+                    if (name.isBlank()) "Program adı yaz" else "Hareket ekle",
+                    {},
+                    Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 
@@ -626,7 +751,7 @@ private fun ExercisePicker(onPick: (com.ranaaclskn.formfit.model.Exercise) -> Un
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
                             Text(ex.titleUpper(), style = MaterialTheme.typography.titleLarge, color = FfColors.Text)
-                            Overline("${ex.category.title} · ${ex.sets} × ${ex.reps}")
+                            Overline("${ex.category.title} · ${ex.gear.title} · ${ex.sets} × ${ex.reps}")
                         }
                         Icon(Icons.Filled.Add, "Ekle", tint = FfColors.Text)
                     }

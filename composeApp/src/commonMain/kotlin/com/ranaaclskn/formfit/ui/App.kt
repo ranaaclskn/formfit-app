@@ -32,6 +32,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.ranaaclskn.formfit.data.HistoryRepository
 import com.ranaaclskn.formfit.data.PlanRepository
+import com.ranaaclskn.formfit.data.newId
 import com.ranaaclskn.formfit.data.runProgress
 import com.ranaaclskn.formfit.model.exerciseById
 
@@ -84,13 +85,22 @@ fun App() {
                         onEdit = { nav.navigate("plan-edit/$id") },
                         onStart = { runId -> nav.navigate("plan-run/$id/$runId") },
                         onOpenRun = { runId -> nav.navigate("plan-run/$id/$runId") },
+                        onStartFrom = { runId, index ->
+                            nav.navigate("plan-run/$id/$runId")
+                            nav.navigate("plan-set/$id/$runId/$index")
+                        },
                     )
                 }
                 composable("plan-edit/{id}") { e ->
                     val id = e.savedStateHandle.get<String>("id").orEmpty()
                     PlanEditScreen(
                         planId = id.takeIf { it != "new" },
-                        onDone = { nav.popBackStack() },
+                        onDone = { planId, start ->
+                            nav.popBackStack()
+                            // Yeni program kaydedilince detayına git; "Kaydet ve başla" ise antrenmanı aç
+                            if (id == "new") nav.navigate("plan/$planId")
+                            if (start) nav.navigate("plan-run/$planId/${newId("run")}")
+                        },
                         onCancel = { nav.popBackStack() },
                     )
                 }

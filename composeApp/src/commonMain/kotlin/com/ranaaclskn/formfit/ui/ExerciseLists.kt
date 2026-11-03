@@ -49,6 +49,9 @@ import com.ranaaclskn.formfit.data.nowMillis
 import com.ranaaclskn.formfit.model.Category
 import com.ranaaclskn.formfit.model.EXERCISES
 import com.ranaaclskn.formfit.model.Exercise
+import com.ranaaclskn.formfit.model.Gear
+
+private const val GYM_FILTER = "GYM"
 
 private fun Exercise.number(): String = (EXERCISES.indexOf(this) + 1).toString().padStart(2, '0')
 
@@ -56,7 +59,13 @@ private fun Exercise.number(): String = (EXERCISES.indexOf(this) + 1).toString()
 @Composable
 fun WorkoutHomeScreen(onStart: (String) -> Unit) {
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
-    val list = EXERCISES.filter { filter == null || it.category.name == filter }
+    val list = EXERCISES.filter {
+        when (filter) {
+            null -> true
+            GYM_FILTER -> it.gear.isGym
+            else -> it.category.name == filter
+        }
+    }
     val sessions by HistoryRepository.sessions.collectAsState()
     val weekAgo = nowMillis() - 7L * 24 * 60 * 60 * 1000
     val thisWeek = sessions.filter { it.startedAt >= weekAgo }
@@ -93,6 +102,7 @@ fun WorkoutHomeScreen(onStart: (String) -> Unit) {
         item(span = { GridItemSpan(2) }) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 4.dp)) {
                 item { PillOption("Tümü", filter == null) { filter = null } }
+                item { PillOption("Salon aletleri", filter == GYM_FILTER) { filter = GYM_FILTER } }
                 items(Category.entries) { c -> PillOption(c.title, filter == c.name) { filter = c.name } }
             }
         }
@@ -150,7 +160,7 @@ private fun ExerciseTile(ex: Exercise, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Overline("${ex.number()} · ${ex.category.title}")
+                Overline("${ex.number()} · ${if (ex.gear.isGym) ex.gear.title else ex.category.title}")
                 Spacer(Modifier.height(3.dp))
                 Text(
                     ex.titleUpper().substringBefore(" ("),
@@ -222,7 +232,7 @@ private fun LibraryRow(ex: Exercise, onClick: () -> Unit) {
                 Text(ex.titleUpper(), style = MaterialTheme.typography.titleLarge, color = FfColors.Text)
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    ex.muscles.take(3).joinToString(" · "),
+                    (listOfNotNull(ex.gear.title.takeIf { ex.gear != Gear.BODYWEIGHT }) + ex.muscles.take(3)).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = FfColors.TextMuted,
                     maxLines = 1,
