@@ -1,0 +1,17 @@
+.gradle/
+build/
+.kotlin/
+local.properties
+.idea/
+*.iml
+.DS_Store
+captures/
+# iOS
+iosApp/iosApp.xcodeproj/
+iosApp/build/
+xcuserdata/
+*.xcworkspace/xcuserdata/
+iosApp/Pods/
+iosApp/iosApp.xcworkspace/
+iosApp/Podfile.lock
+iosApp/iosApp/Info.plist

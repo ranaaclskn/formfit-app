@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="arka_plan">#0B0F14</color>
+    <color name="ikon_arka">#0B0F14</color>
+    <style name="Tema.FormFit" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/arka_plan</item>
+        <item name="android:statusBarColor">@color/arka_plan</item>
+        <item name="android:navigationBarColor">@color/arka_plan</item>
+    </style>
+</resources>

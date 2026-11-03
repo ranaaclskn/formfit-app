@@ -1,0 +1,8 @@
+# MediaPipe'ın iOS kütüphanesi CocoaPods ile gelir.
+# Kurulum (Mac'te):  cd iosApp && xcodegen && pod install  → sonra iosApp.xcworkspace'i aç
+platform :ios, '15.0'
+
+target 'iosApp' do
+  use_frameworks!
+  pod 'MediaPipeTasksVision', '0.10.35'
+end

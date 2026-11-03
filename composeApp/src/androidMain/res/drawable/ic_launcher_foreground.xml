@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dambıl: uygulama ikonu -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#22D3EE" android:pathData="M34,51h40v6h-40z" />
+    <path android:fillColor="#22D3EE" android:pathData="M29,38h7a2,2 0 0 1 2,2v28a2,2 0 0 1 -2,2h-7a2,2 0 0 1 -2,-2v-28a2,2 0 0 1 2,-2z" />
+    <path android:fillColor="#22D3EE" android:pathData="M72,38h7a2,2 0 0 1 2,2v28a2,2 0 0 1 -2,2h-7a2,2 0 0 1 -2,-2v-28a2,2 0 0 1 2,-2z" />
+    <path android:fillColor="#22D3EE" android:pathData="M22,45h5v18h-5a2,2 0 0 1 -2,-2v-14a2,2 0 0 1 2,-2z" />
+    <path android:fillColor="#22D3EE" android:pathData="M81,45h5a2,2 0 0 1 2,2v14a2,2 0 0 1 -2,2h-5z" />
+</vector>
