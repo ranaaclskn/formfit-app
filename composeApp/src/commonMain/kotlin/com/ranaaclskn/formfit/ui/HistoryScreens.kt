@@ -1,15 +1,21 @@
 package com.ranaaclskn.formfit.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -20,9 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,10 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ranaaclskn.formfit.data.HistoryRepository
 import com.ranaaclskn.formfit.data.WorkoutSession
 import com.ranaaclskn.formfit.data.formatDateTime
@@ -51,16 +52,27 @@ fun HistoryScreen(onOpen: (String) -> Unit) {
     val totalReps = list.sumOf { it.reps.size }
     val totalCorrect = list.sumOf { it.correctCount }
 
-    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { ScreenTitle("Geçmiş", "Yaptığın tüm antrenmanlar ve tekrarların.") }
+    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 28.dp)) {
+        item { ScreenHeader("Kayıtlar", "Geçmiş", "Yaptığın tüm antrenmanlar, tekrar tekrar.") }
         if (all.isEmpty()) {
             item {
-                Text(
-                    "Henüz kayıtlı antrenman yok. Antrenman sekmesinden bir hareket seçip başla; bitirdiğinde burada görünecek.",
-                    color = FfColors.TextMuted,
-                    fontSize = 15.sp,
-                    modifier = Modifier.padding(20.dp),
-                )
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(FfColors.Card)
+                        .border(1.dp, FfColors.Border, RoundedCornerShape(22.dp))
+                        .padding(24.dp),
+                ) {
+                    Text("HENÜZ KAYIT YOK", style = MaterialTheme.typography.headlineMedium, color = FfColors.Text)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Antrenman sekmesinden bir hareket seç ve başla. Bitirdiğinde her tekrarın burada görünecek.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = FfColors.TextSecondary,
+                    )
+                }
             }
             return@LazyColumn
         }
@@ -76,13 +88,11 @@ fun HistoryScreen(onOpen: (String) -> Unit) {
         item {
             val done = all.map { it.exerciseId to it.exerciseName }.distinct()
             LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                item { FilterChip(selected = filter == null, onClick = { filter = null }, label = { Text("Tümü") }) }
-                items(done) { (id, name) ->
-                    FilterChip(selected = filter == id, onClick = { filter = id }, label = { Text(name) })
-                }
+                item { PillOption("Tümü", filter == null) { filter = null } }
+                items(done) { (id, name) -> PillOption(upperExerciseName(id, name).substringBefore(" ("), filter == id) { filter = id } }
             }
         }
         items(list, key = { it.id }) { s -> SessionRow(s) { onOpen(s.id) } }
@@ -91,41 +101,64 @@ fun HistoryScreen(onOpen: (String) -> Unit) {
 
 @Composable
 private fun SessionRow(s: WorkoutSession, onClick: () -> Unit) {
+    // "3 Kas 2026, 18:42" → gün, ay, saat
+    val parts = formatDateTime(s.startedAt).replace(",", "").split(" ")
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(FfColors.Surface)
+            .padding(horizontal = 20.dp, vertical = 5.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(FfColors.Card)
+            .border(1.dp, FfColors.Border, RoundedCornerShape(20.dp))
             .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(s.exerciseName, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
-            Text(
-                "${formatDateTime(s.startedAt)} · ${formatDuration(s.durationMs)}",
-                color = FfColors.TextMuted,
-                fontSize = 13.sp,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("✓ ${s.correctCount} doğru", FfColors.Good)
-                Chip("✗ ${s.incorrectCount} yanlış", FfColors.Bad)
-            }
+        Column(
+            Modifier
+                .width(54.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(FfColors.SurfaceHigh)
+                .padding(vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(parts.getOrElse(0) { "" }.padStart(2, '0'), style = MaterialTheme.typography.headlineMedium, color = FfColors.Text)
+            Overline(parts.getOrElse(1) { "" })
         }
-        Text(
-            "%${s.accuracy}",
-            color = accuracyColor(s.accuracy),
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-        )
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(upperExerciseName(s.exerciseId, s.exerciseName).substringBefore(" ("), style = MaterialTheme.typography.titleLarge, color = FfColors.Text)
+            Spacer(Modifier.height(2.dp))
+            Text(
+                "${s.correctCount} doğru · ${s.incorrectCount} yanlış · ${formatDuration(s.durationMs)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = FfColors.TextMuted,
+            )
+            Spacer(Modifier.height(8.dp))
+            AccuracyBar(s.accuracy)
+        }
+        Spacer(Modifier.width(14.dp))
+        Text("%${s.accuracy}", style = MaterialTheme.typography.headlineLarge, color = FfColors.Text)
     }
 }
 
-private fun accuracyColor(a: Int) = when {
-    a >= 80 -> FfColors.Good
-    a >= 50 -> FfColors.Warn
-    else -> FfColors.Bad
+@Composable
+private fun AccuracyBar(accuracy: Int) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(4.dp)
+            .clip(RoundedCornerShape(50))
+            .background(FfColors.Border),
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth(accuracy / 100f)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(50))
+                .background(FfColors.Accent),
+        )
+    }
 }
 
 @Composable
@@ -134,40 +167,37 @@ fun SessionDetailScreen(sessionId: String, onBack: () -> Unit) {
     val s = all.firstOrNull { it.id == sessionId }
     var confirmDelete by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())) {
-        Row(Modifier.padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Geri", tint = Color.White) }
-            Text(
-                s?.exerciseName ?: "Antrenman",
-                color = Color.White,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f),
-            )
-            if (s != null) {
-                IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Sil", tint = FfColors.TextMuted) }
-            }
+    Column(
+        Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 28.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RoundIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Geri", onBack)
+            Spacer(Modifier.weight(1f))
+            if (s != null) RoundIconButton(Icons.Filled.Delete, "Sil", { confirmDelete = true })
         }
         if (s == null) {
             Text("Bu kayıt bulunamadı.", color = FfColors.TextMuted, modifier = Modifier.padding(20.dp))
             return@Column
         }
-        Text(
-            formatDateTime(s.startedAt),
-            color = FfColors.TextMuted,
-            modifier = Modifier.padding(start = 20.dp, bottom = 12.dp),
-        )
+        ScreenHeader(formatDateTime(s.startedAt), upperExerciseName(s.exerciseId, s.exerciseName))
         StatsRow(
             listOf(
                 "Doğru" to "${s.correctCount}",
                 "Yanlış" to "${s.incorrectCount}",
                 "Doğruluk" to "%${s.accuracy}",
-                "Süre" to formatDuration(s.durationMs),
             ),
         )
+        Spacer(Modifier.height(6.dp))
         val faults = s.topFaults()
         if (faults.isNotEmpty()) {
-            SectionCard("En sık hatalar", faults.map { "${it.first} (${it.second}×)" }, FfColors.Warn)
+            SectionCard("En sık hatalar", faults.map { "${it.first}  ·  ${it.second}×" }, Bullet.CAUTION)
         }
         RepList(s.reps.map { Triple(it.correct, it.durationMs, it.faults) })
     }
@@ -175,16 +205,21 @@ fun SessionDetailScreen(sessionId: String, onBack: () -> Unit) {
     if (confirmDelete && s != null) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Kayıt silinsin mi?") },
+            containerColor = FfColors.Surface,
+            title = { Text("KAYIT SİLİNSİN Mİ?", style = MaterialTheme.typography.headlineMedium) },
             text = { Text("${s.exerciseName} antrenmanı geçmişten kalıcı olarak silinecek.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
                     HistoryRepository.delete(s.id)
                     onBack()
-                }) { Text("Sil", color = FfColors.Bad) }
+                }) { Text("SİL", color = FfColors.Bad, style = MaterialTheme.typography.labelLarge) }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Vazgeç") } },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) {
+                    Text("VAZGEÇ", color = FfColors.Text, style = MaterialTheme.typography.labelLarge)
+                }
+            },
         )
     }
 }

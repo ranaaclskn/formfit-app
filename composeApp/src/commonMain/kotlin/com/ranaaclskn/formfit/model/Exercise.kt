@@ -33,4 +33,6 @@ class Exercise(
     val tips: List<String>,
     val rule: ExerciseRule,
     val demo: DemoAnimation,
+    /** Büyük harfli başlık; İngilizce isimlerde Türkçe "İ" kuralı uygulanmasın diye elle verilir. */
+    val upperName: String? = null,
 )

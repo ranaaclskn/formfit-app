@@ -2,10 +2,12 @@ package com.ranaaclskn.formfit.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -18,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
@@ -40,6 +43,8 @@ fun ExerciseDemoView(
     speed: Float,
     modifier: Modifier = Modifier,
     showCue: Boolean = true,
+    /** Durdurulmuşken gösterilecek poz (0 = başlangıç, 1 = bitiş). */
+    stillProgress: Float = 0f,
 ) {
     var cycle by remember(demo) { mutableFloatStateOf(0f) }
     LaunchedEffect(demo, playing, speed) {
@@ -52,7 +57,7 @@ fun ExerciseDemoView(
             last = now
         }
     }
-    val (progress, towardEnd) = demo.progressAt(cycle)
+    val (progress, towardEnd) = if (!playing && cycle == 0f) stillProgress to true else demo.progressAt(cycle)
 
     // Kadrajı tüm döngüye göre bir kez hesapla ki figür zıplamasın
     val bounds = remember(demo) {
@@ -69,8 +74,8 @@ fun ExerciseDemoView(
 
     Box(
         modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color(0xFF101820)),
+            .clip(RoundedCornerShape(if (showCue) 24.dp else 16.dp))
+            .background(Brush.verticalGradient(listOf(Color(0xFF1E1E1E), Color(0xFF0E0E0E)))),
     ) {
         Canvas(Modifier.fillMaxSize().padding(if (showCue) 16.dp else 6.dp)) {
             val (bx0, by0, bx1, by1) = bounds.toList()
@@ -81,17 +86,17 @@ fun ExerciseDemoView(
 
             // Zemin
             drawLine(
-                Color.White.copy(alpha = 0.18f),
+                Color.White.copy(alpha = 0.14f),
                 Offset(0f, (by1 - 6f) * scale + oy),
                 Offset(size.width, (by1 - 6f) * scale + oy),
                 strokeWidth = 2.dp.toPx(),
             )
 
             val j = demo.jointsAt(progress)
-            val near = FfColors.Accent
-            val far = FfColors.Accent.copy(alpha = if (demo.view == DemoView.SIDE) 0.35f else 1f)
+            val near = Color.White
+            val far = if (demo.view == DemoView.SIDE) Color(0xFF5A5A5A) else Color.White
             // Çizgi kalınlığı figürün boyuna göre; küçük önizlemede de orantılı görünsün
-            val w = (4.5f * scale).coerceIn(1.5.dp.toPx(), 7.dp.toPx())
+            val w = (5f * scale).coerceIn(2.5.dp.toPx(), 7.dp.toPx())
             fun bone(a: Joint, b: Joint, c: Color) =
                 drawLine(c, p(j.getValue(a)), p(j.getValue(b)), strokeWidth = w, cap = StrokeCap.Round)
 
@@ -109,19 +114,19 @@ fun ExerciseDemoView(
 
             drawCircle(near, radius = 9f * scale, center = p(j.getValue(Joint.HEAD)))
             for (k in listOf(Joint.KN_L, Joint.EL_L, Joint.HIP_C)) {
-                drawCircle(Color.White, radius = w * 0.45f, center = p(j.getValue(k)))
+                drawCircle(Color(0xFF0E0E0E), radius = w * 0.4f, center = p(j.getValue(k)))
             }
         }
         if (showCue) Text(
             if (towardEnd) demo.toEndCue else demo.toStartCue,
             color = Color.White,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 15.sp,
+            style = MaterialTheme.typography.labelLarge,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 12.dp)
                 .clip(RoundedCornerShape(50))
-                .background(Color.Black.copy(alpha = 0.45f))
+                .background(Color.Black.copy(alpha = 0.6f))
+                .border(1.dp, FfColors.Border, RoundedCornerShape(50))
                 .padding(horizontal = 14.dp, vertical = 6.dp),
         )
     }

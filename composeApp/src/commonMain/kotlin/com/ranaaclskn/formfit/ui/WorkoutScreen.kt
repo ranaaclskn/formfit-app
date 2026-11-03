@@ -1,6 +1,10 @@
 package com.ranaaclskn.formfit.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -148,7 +152,7 @@ fun WorkoutScreen(exercise: Exercise, onClose: () -> Unit, onShowHowTo: () -> Un
         return
     }
 
-    // Son tekrarın rengi kısa süre iskelette görünsün
+    // Son tekrarın sonucu kısa süre iskelette renkle görünsün
     var flash by remember { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(controller.lastRep) {
         val r = controller.lastRep ?: return@LaunchedEffect
@@ -160,7 +164,7 @@ fun WorkoutScreen(exercise: Exercise, onClose: () -> Unit, onShowHowTo: () -> Un
         when (flash) {
             true -> FfColors.Good
             false -> FfColors.Bad
-            null -> if (controller.feedback.kind == FeedbackKind.WARN) FfColors.Warn else FfColors.Accent
+            null -> Color.White
         }
     )
 
@@ -176,29 +180,26 @@ fun WorkoutScreen(exercise: Exercise, onClose: () -> Unit, onShowHowTo: () -> Un
         Column(
             Modifier
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.75f), Color.Transparent)))
+                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.85f), Color.Transparent)))
                 .statusBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = 16.dp, vertical = 10.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.Filled.Close, "Kapat", tint = Color.White) }
-                Column(Modifier.weight(1f)) {
-                    Text(exercise.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Text(
-                        if (stage == Stage.ACTIVE) "Süre ${formatDuration(elapsed)} · Hedef ${exercise.reps} tekrar"
+                RoundIconButton(Icons.Filled.Close, "Kapat", onClose)
+                Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                    Text(exercise.titleUpper(), style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 1)
+                    Overline(
+                        if (stage == Stage.ACTIVE) "Süre ${formatDuration(elapsed)} · Hedef ${exercise.reps}"
                         else exercise.cameraAngle.title,
-                        color = Color.White.copy(alpha = 0.75f),
-                        fontSize = 13.sp,
+                        color = Color.White.copy(alpha = 0.7f),
                     )
                 }
-                IconButton(onClick = { frontCamera = !frontCamera }) {
-                    Icon(Icons.Filled.Cameraswitch, "Kamerayı çevir", tint = Color.White)
-                }
+                RoundIconButton(Icons.Filled.Cameraswitch, "Kamerayı çevir", { frontCamera = !frontCamera })
             }
             if (stage == Stage.ACTIVE) {
-                Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Counter("DOĞRU", controller.correct, FfColors.Good, Modifier.weight(1f))
-                    Counter("YANLIŞ", controller.incorrect, FfColors.Bad, Modifier.weight(1f))
+                Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Counter("Doğru", controller.correct, FfColors.Good, Modifier.weight(1f))
+                    Counter("Yanlış", controller.incorrect, FfColors.Bad, Modifier.weight(1f))
                 }
             }
         }
@@ -214,8 +215,8 @@ fun WorkoutScreen(exercise: Exercise, onClose: () -> Unit, onShowHowTo: () -> Un
                 Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("$countdown", color = Color.White, fontSize = 110.sp, fontWeight = FontWeight.Bold)
-                Text("Pozisyonunu al", color = Color.White, fontSize = 18.sp)
+                Text("$countdown", style = MaterialTheme.typography.displayLarge.copy(fontSize = 150.sp, lineHeight = 150.sp), color = Color.White)
+                Overline("Pozisyonunu al", color = Color.White)
             }
             Stage.ACTIVE -> Column(
                 Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(16.dp),
@@ -223,15 +224,15 @@ fun WorkoutScreen(exercise: Exercise, onClose: () -> Unit, onShowHowTo: () -> Un
             ) {
                 FeedbackBanner(controller.feedback)
                 Spacer(Modifier.height(12.dp))
-                Button(
+                PrimaryButton(
+                    "Antrenmanı bitir",
                     onClick = {
                         durationAtEnd = controller.elapsedMs()
                         saved = controller.save()
                         stage = Stage.SUMMARY
                     },
-                    modifier = Modifier.fillMaxWidth().height(54.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
-                ) { Text("Antrenmanı bitir", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             Stage.SUMMARY -> Unit
         }
@@ -239,38 +240,45 @@ fun WorkoutScreen(exercise: Exercise, onClose: () -> Unit, onShowHowTo: () -> Un
 }
 
 @Composable
-private fun Counter(label: String, value: Int, color: Color, modifier: Modifier) {
-    Column(
+private fun Counter(label: String, value: Int, dot: Color, modifier: Modifier) {
+    Row(
         modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.Black.copy(alpha = 0.55f))
-            .padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color.Black.copy(alpha = 0.6f))
+            .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("$value", color = color, fontSize = 40.sp, fontWeight = FontWeight.Bold)
-        Text(label, color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
+                Spacer(Modifier.width(6.dp))
+                Overline(label, color = Color.White.copy(alpha = 0.75f))
+            }
+        }
+        Text("$value", style = MaterialTheme.typography.displayLarge, color = Color.White)
     }
 }
 
 @Composable
 private fun FeedbackBanner(feedback: LiveFeedback) {
-    val color = when (feedback.kind) {
+    val dot = when (feedback.kind) {
         FeedbackKind.GOOD -> FfColors.Good
         FeedbackKind.BAD -> FfColors.Bad
         FeedbackKind.WARN -> FfColors.Warn
-        FeedbackKind.INFO -> Color.White
+        FeedbackKind.INFO -> FfColors.TextMuted
     }
-    Text(
-        feedback.message,
-        color = if (feedback.kind == FeedbackKind.INFO) Color.Black else Color.White,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        textAlign = TextAlign.Center,
-        modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(color.copy(alpha = 0.92f))
-            .padding(horizontal = 18.dp, vertical = 10.dp),
-    )
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(50))
+            .background(Color.White)
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
+        Spacer(Modifier.width(10.dp))
+        Text(feedback.message, style = MaterialTheme.typography.titleSmall, color = FfColors.OnAccent, textAlign = TextAlign.Center)
+    }
 }
 
 @Composable
@@ -280,27 +288,24 @@ private fun SetupCard(exercise: Exercise, onStart: () -> Unit, onShowHowTo: () -
             .fillMaxWidth()
             .navigationBarsPadding()
             .padding(16.dp)
-            .clip(RoundedCornerShape(22.dp))
-            .background(FfColors.Surface.copy(alpha = 0.95f))
-            .padding(20.dp),
+            .clip(RoundedCornerShape(26.dp))
+            .background(FfColors.Surface.copy(alpha = 0.96f))
+            .border(1.dp, FfColors.Border, RoundedCornerShape(26.dp))
+            .padding(22.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("Kamerayı yerleştir", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-        Text(exercise.setup, color = Color(0xFFCBD5E1), fontSize = 15.sp, lineHeight = 21.sp)
+        Overline("Hazırlık · ${exercise.cameraAngle.title}")
+        Text("KAMERAYI YERLEŞTİR", style = MaterialTheme.typography.headlineLarge, color = FfColors.Text)
+        Text(exercise.setup, style = MaterialTheme.typography.bodyMedium, color = FfColors.TextSecondary)
         Text(
-            "Başla'ya bastıktan sonra 5 saniyen var. Tüm vücudun iskelet çizgileriyle görünüyorsa hazırsın.",
+            "Başla'ya bastıktan sonra 5 saniyen var. İskelet çizgileri tüm vücudunda görünüyorsa hazırsın.",
+            style = MaterialTheme.typography.bodySmall,
             color = FfColors.TextMuted,
-            fontSize = 13.sp,
         )
+        Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(onClick = onShowHowTo, modifier = Modifier.weight(1f).height(50.dp)) {
-                Text("Nasıl yapılır?")
-            }
-            Button(
-                onClick = onStart,
-                modifier = Modifier.weight(1f).height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = FfColors.Accent),
-            ) { Text("Başla", fontWeight = FontWeight.Bold) }
+            SecondaryButton("Nasıl yapılır", onShowHowTo, Modifier.weight(1f))
+            PrimaryButton("Başla", onStart, Modifier.weight(1f))
         }
     }
 }
@@ -325,51 +330,27 @@ private fun SummaryView(
             .navigationBarsPadding()
             .verticalScroll(rememberScrollState()),
     ) {
-        ScreenTitle("Antrenman bitti", exercise.name)
+        ScreenHeader("Antrenman bitti · ${exercise.titleUpper()}", "%$accuracy doğru")
         StatsRow(
             listOf(
                 "Doğru" to "$correct",
                 "Yanlış" to "${reps.size - correct}",
-                "Doğruluk" to "%$accuracy",
                 "Süre" to formatDuration(durationMs),
             ),
         )
         Text(
             if (saved) "Geçmişe kaydedildi." else "Hiç tekrar sayılmadığı için kaydedilmedi.",
-            color = if (saved) FfColors.Good else FfColors.TextMuted,
-            fontSize = 14.sp,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = FfColors.TextMuted,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
         )
         if (faults.isNotEmpty()) {
-            SectionCard("En sık hatalar", faults.map { "${it.first} (${it.second}×)" }, FfColors.Warn)
+            SectionCard("En sık hatalar", faults.map { "${it.first}  ·  ${it.second}×" }, Bullet.CAUTION)
         }
         if (reps.isNotEmpty()) RepList(reps.map { Triple(it.correct, it.durationMs, it.faults) })
         Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(onClick = onRestart, modifier = Modifier.weight(1f).height(52.dp)) { Text("Tekrar başla") }
-            Button(
-                onClick = onClose,
-                modifier = Modifier.weight(1f).height(52.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = FfColors.Accent),
-            ) { Text("Tamam", fontWeight = FontWeight.Bold) }
-        }
-    }
-}
-
-@Composable
-fun StatsRow(stats: List<Pair<String, String>>) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        stats.forEach { (label, value) ->
-            Column(
-                Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(FfColors.Surface)
-                    .padding(vertical = 14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(value, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Text(label, color = FfColors.TextMuted, fontSize = 12.sp)
-            }
+            SecondaryButton("Tekrar başla", onRestart, Modifier.weight(1f))
+            PrimaryButton("Tamam", onClose, Modifier.weight(1f))
         }
     }
 }
@@ -379,31 +360,40 @@ fun StatsRow(stats: List<Pair<String, String>>) {
 fun RepList(reps: List<Triple<Boolean, Long, List<String>>>) {
     Column(
         Modifier
-            .padding(horizontal = 20.dp, vertical = 8.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(FfColors.Surface)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(FfColors.Card)
+            .border(1.dp, FfColors.Border, RoundedCornerShape(20.dp))
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Tekrarlar", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+        Text("TEKRARLAR", style = MaterialTheme.typography.titleLarge, color = FfColors.Text)
         reps.forEachIndexed { i, (ok, ms, faults) ->
             Row(verticalAlignment = Alignment.Top) {
                 Text(
-                    if (ok) "✓" else "✗",
-                    color = if (ok) FfColors.Good else FfColors.Bad,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    modifier = Modifier.width(26.dp),
+                    (i + 1).toString().padStart(2, '0'),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = FfColors.TextMuted,
+                    modifier = Modifier.width(34.dp),
                 )
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "${i + 1}. tekrar · ${(ms / 100) / 10.0} sn",
-                        color = Color.White,
-                        fontSize = 15.sp,
+                        if (ok) "Doğru" else "Yanlış",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = FfColors.Text,
                     )
-                    if (faults.isNotEmpty()) {
-                        Text(faults.joinToString(" · "), color = FfColors.TextMuted, fontSize = 13.sp)
-                    }
+                    Text(
+                        if (faults.isEmpty()) "${(ms / 100) / 10.0} sn" else faults.joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = FfColors.TextMuted,
+                    )
+                }
+                Box(
+                    Modifier.padding(top = 2.dp).size(24.dp).clip(CircleShape).background(if (ok) FfColors.Good else FfColors.Bad),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(if (ok) "✓" else "✕", color = FfColors.OnAccent, style = MaterialTheme.typography.labelMedium)
                 }
             }
         }

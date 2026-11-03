@@ -29,6 +29,7 @@ kotlin {
             implementation(compose.material3)
             implementation(compose.materialIconsExtended)
             implementation(compose.ui)
+            implementation(compose.components.resources)
             implementation(libs.navigation.compose)
             implementation(libs.lifecycle.runtime.compose)
             implementation(libs.kotlinx.serialization.json)
@@ -71,4 +72,9 @@ android {
     androidResources {
         noCompress += "task"
     }
+}
+
+compose.resources {
+    publicResClass = false
+    packageOfResClass = "com.ranaaclskn.formfit.resources"
 }

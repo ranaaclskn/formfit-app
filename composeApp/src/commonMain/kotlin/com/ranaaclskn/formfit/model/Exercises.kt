@@ -322,6 +322,7 @@ val EXERCISES: List<Exercise> = listOf(
             toStartCue = "Yavaşça indir",
             dumbbells = true,
         ),
+        upperName = "BICEPS CURL",
     ),
     Exercise(
         id = "shoulder-press",
@@ -423,6 +424,7 @@ val EXERCISES: List<Exercise> = listOf(
             toStartCue = "Yavaşça indir",
             dumbbells = true,
         ),
+        upperName = "YANA AÇIŞ (LATERAL RAISE)",
     ),
     Exercise(
         id = "jumping-jack",
@@ -471,7 +473,8 @@ val EXERCISES: List<Exercise> = listOf(
             holdStart = 0.05f,
             holdEnd = 0.05f,
         ),
+        upperName = "JUMPING JACK",
     ),
-)
+).sortedBy { it.category.ordinal } // Kategoriler arka arkaya gelsin, numaralar sıralı olsun
 
 fun exerciseById(id: String): Exercise? = EXERCISES.firstOrNull { it.id == id }

@@ -1,6 +1,7 @@
 package com.ranaaclskn.formfit.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,26 +9,32 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -35,113 +42,205 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.ranaaclskn.formfit.data.HistoryRepository
+import com.ranaaclskn.formfit.data.nowMillis
 import com.ranaaclskn.formfit.model.Category
 import com.ranaaclskn.formfit.model.EXERCISES
 import com.ranaaclskn.formfit.model.Exercise
 
-/** Antrenman sekmesi: hareket seçip kamerayla başlatma. */
+private fun Exercise.number(): String = (EXERCISES.indexOf(this) + 1).toString().padStart(2, '0')
+
+/** Antrenman sekmesi: hareketler iki sütunlu kartlar halinde. */
 @Composable
 fun WorkoutHomeScreen(onStart: (String) -> Unit) {
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
     val list = EXERCISES.filter { filter == null || it.category.name == filter }
-    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { ScreenTitle("Antrenman", "Hareketi seç, kamerayı aç. FormFit doğru ve yanlış tekrarlarını saysın.") }
-        item {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(bottom = 8.dp),
-            ) {
-                item { CategoryChip("Tümü", filter == null) { filter = null } }
-                items(Category.entries) { c -> CategoryChip(c.title, filter == c.name) { filter = c.name } }
-            }
-        }
-        items(list, key = { it.id }) { ex ->
-            ExerciseRow(ex, onClick = { onStart(ex.id) }) {
-                Box(
-                    Modifier.size(44.dp).clip(CircleShape).background(FfColors.Accent),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Filled.PlayArrow, "Başla", tint = MaterialTheme.colorScheme.onPrimary)
-                }
-            }
-        }
-    }
-}
+    val sessions by HistoryRepository.sessions.collectAsState()
+    val weekAgo = nowMillis() - 7L * 24 * 60 * 60 * 1000
+    val thisWeek = sessions.filter { it.startedAt >= weekAgo }
+    val weekReps = thisWeek.sumOf { it.reps.size }
+    val weekCorrect = thisWeek.sumOf { it.correctCount }
 
-/** Hareketler sekmesi: nasıl yapıldığını gösteren sayfalara giriş. */
-@Composable
-fun LibraryScreen(onOpen: (String) -> Unit) {
-    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { ScreenTitle("Hareketler", "Hareketin videosunu izle, dikkat edilmesi gerekenleri ve püf noktalarını öğren.") }
-        Category.entries.forEach { cat ->
-            val inCat = EXERCISES.filter { it.category == cat }
-            if (inCat.isEmpty()) return@forEach
-            item(key = "h-${cat.name}") {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        modifier = Modifier.fillMaxSize().statusBarsPadding(),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 28.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item(span = { GridItemSpan(2) }) {
+            Column(Modifier.padding(top = 20.dp, bottom = 4.dp)) {
+                Overline("FORMFIT · Antrenman")
+                Spacer(Modifier.height(6.dp))
+                Text("BUGÜN NE\nÇALIŞIYORUZ?", style = MaterialTheme.typography.displayLarge, color = FfColors.Text)
+                Spacer(Modifier.height(10.dp))
                 Text(
-                    cat.title.uppercase(),
-                    color = FfColors.TextMuted,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.5.sp,
-                    modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp),
+                    "Hareketi seç, telefonu yerleştir. Kamera formunu izler, doğru ve yanlış tekrarlarını sayar.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = FfColors.TextSecondary,
                 )
             }
-            items(inCat, key = { it.id }) { ex ->
-                ExerciseRow(ex, onClick = { onOpen(ex.id) }) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = FfColors.TextMuted)
-                }
+        }
+        item(span = { GridItemSpan(2) }) {
+            WeekStrip(
+                workouts = thisWeek.size,
+                reps = weekReps,
+                accuracy = if (weekReps == 0) null else weekCorrect * 100 / weekReps,
+            )
+        }
+        item(span = { GridItemSpan(2) }) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 4.dp)) {
+                item { PillOption("Tümü", filter == null) { filter = null } }
+                items(Category.entries) { c -> PillOption(c.title, filter == c.name) { filter = c.name } }
             }
         }
+        items(list, key = { it.id }) { ex -> ExerciseTile(ex) { onStart(ex.id) } }
     }
 }
 
 @Composable
-private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        label = { Text(label) },
-        colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = FfColors.Accent,
-            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-        ),
-    )
-}
-
-@Composable
-private fun ExerciseRow(ex: Exercise, onClick: () -> Unit, trailing: @Composable () -> Unit) {
+private fun WeekStrip(workouts: Int, reps: Int, accuracy: Int?) {
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(FfColors.Surface)
-            .clickable(onClick = onClick)
-            .padding(12.dp),
+            .clip(RoundedCornerShape(20.dp))
+            .background(FfColors.Accent)
+            .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Overline("Bu hafta", color = FfColors.OnAccent.copy(alpha = 0.55f))
+            Spacer(Modifier.height(2.dp))
+            Text(
+                if (workouts == 0) "İLK ANTRENMANINI BAŞLAT" else "$workouts ANTRENMAN · $reps TEKRAR",
+                style = MaterialTheme.typography.titleLarge,
+                color = FfColors.OnAccent,
+            )
+        }
+        if (accuracy != null) {
+            Column(horizontalAlignment = Alignment.End) {
+                Text("%$accuracy", style = MaterialTheme.typography.headlineLarge, color = FfColors.OnAccent)
+                Overline("Doğruluk", color = FfColors.OnAccent.copy(alpha = 0.55f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExerciseTile(ex: Exercise, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .clip(RoundedCornerShape(22.dp))
+            .background(FfColors.Card)
+            .border(1.dp, FfColors.Border, RoundedCornerShape(22.dp))
+            .clickable(onClick = onClick),
     ) {
         ExerciseDemoView(
             ex.demo,
             playing = false,
             speed = 1f,
             showCue = false,
-            modifier = Modifier.size(76.dp),
+            stillProgress = 1f,
+            modifier = Modifier.fillMaxWidth().aspectRatio(1.1f).padding(6.dp),
         )
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(ex.name, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
-            Text(
-                "${ex.sets} set × ${ex.reps} tekrar · ${ex.cameraAngle.title}",
-                color = FfColors.TextMuted,
-                fontSize = 13.sp,
-            )
-            Chip(ex.category.title)
+        Row(
+            Modifier.padding(start = 14.dp, end = 10.dp, top = 6.dp, bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Overline("${ex.number()} · ${ex.category.title}")
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    ex.titleUpper().substringBefore(" ("),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = FfColors.Text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "${ex.sets} × ${ex.reps} · ${ex.cameraAngle.title.substringBefore(" ")}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = FfColors.TextMuted,
+                )
+            }
+            Box(
+                Modifier.size(38.dp).clip(CircleShape).background(FfColors.Accent),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Filled.PlayArrow, "Başla", tint = FfColors.OnAccent, modifier = Modifier.size(22.dp)) }
         }
-        trailing()
+    }
+}
+
+/** Hareketler sekmesi: numaralı, kategorilere ayrılmış liste. */
+@Composable
+fun LibraryScreen(onOpen: (String) -> Unit) {
+    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 28.dp)) {
+        item {
+            ScreenHeader(
+                "Kütüphane",
+                "Hareketler",
+                "Her hareketin videosu, dikkat edilmesi gerekenler ve püf noktaları.",
+            )
+        }
+        Category.entries.forEach { cat ->
+            val inCat = EXERCISES.filter { it.category == cat }
+            if (inCat.isEmpty()) return@forEach
+            item(key = "h-${cat.name}") {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Overline(cat.title, color = FfColors.Text)
+                    Spacer(Modifier.width(10.dp))
+                    HorizontalDivider(Modifier.weight(1f), color = FfColors.Border)
+                    Spacer(Modifier.width(10.dp))
+                    Overline("${inCat.size} hareket")
+                }
+            }
+            items(inCat, key = { it.id }) { ex -> LibraryRow(ex) { onOpen(ex.id) } }
+        }
+    }
+}
+
+@Composable
+private fun LibraryRow(ex: Exercise, onClick: () -> Unit) {
+    Column(Modifier.clickable(onClick = onClick)) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                ex.number(),
+                style = MaterialTheme.typography.headlineMedium,
+                color = FfColors.TextMuted,
+                modifier = Modifier.width(44.dp),
+            )
+            Column(Modifier.weight(1f)) {
+                Text(ex.titleUpper(), style = MaterialTheme.typography.titleLarge, color = FfColors.Text)
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    ex.muscles.take(3).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = FfColors.TextMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            ExerciseDemoView(
+                ex.demo,
+                playing = false,
+                speed = 1f,
+                showCue = false,
+                stillProgress = 1f,
+                modifier = Modifier.size(64.dp),
+            )
+            Spacer(Modifier.width(10.dp))
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = FfColors.TextMuted, modifier = Modifier.size(20.dp))
+        }
+        HorizontalDivider(Modifier.padding(horizontal = 20.dp), color = FfColors.Border)
     }
 }

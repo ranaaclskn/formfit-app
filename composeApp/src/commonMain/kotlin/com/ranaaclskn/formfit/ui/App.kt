@@ -1,11 +1,13 @@
 package com.ranaaclskn.formfit.ui
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -18,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -86,24 +89,30 @@ fun App() {
 
 @Composable
 private fun BottomBar(nav: NavHostController, route: String?) {
-    NavigationBar(containerColor = FfColors.Surface) {
-        Tab.entries.forEach { tab ->
-            NavigationBarItem(
-                selected = route == tab.route,
-                onClick = {
-                    nav.navigate(tab.route) {
-                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                icon = { Icon(tab.icon, contentDescription = tab.title) },
-                label = { Text(tab.title) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-                    indicatorColor = FfColors.Accent,
-                ),
-            )
+    Column {
+        HorizontalDivider(color = FfColors.Border)
+        NavigationBar(containerColor = FfColors.Background, tonalElevation = 0.dp) {
+            Tab.entries.forEach { tab ->
+                NavigationBarItem(
+                    selected = route == tab.route,
+                    onClick = {
+                        nav.navigate(tab.route) {
+                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    icon = { Icon(tab.icon, contentDescription = tab.title) },
+                    label = { Text(tab.title.trUpper(), style = MaterialTheme.typography.labelSmall) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = FfColors.OnAccent,
+                        selectedTextColor = FfColors.Text,
+                        indicatorColor = FfColors.Accent,
+                        unselectedIconColor = FfColors.TextMuted,
+                        unselectedTextColor = FfColors.TextMuted,
+                    ),
+                )
+            }
         }
     }
 }
