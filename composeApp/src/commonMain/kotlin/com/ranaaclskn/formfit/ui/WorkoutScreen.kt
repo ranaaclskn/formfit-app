@@ -1,6 +1,7 @@
 package com.ranaaclskn.formfit.ui
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.clickable
 import com.ranaaclskn.formfit.analysis.VoiceCoach
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
@@ -249,6 +250,10 @@ fun WorkoutScreen(
                     Counter("Yanlış", controller.incorrect, FfColors.Bad, Modifier.weight(1f))
                 }
             }
+            // Sağ üstte küçük "nasıl yapılır" videosu: bakarak yapabilmek için. Dokununca büyür/küçülür.
+            Box(Modifier.fillMaxWidth().padding(top = 10.dp), contentAlignment = Alignment.TopEnd) {
+                MiniDemo(exercise)
+            }
         }
 
         when (stage) {
@@ -312,6 +317,34 @@ private fun Counter(label: String, value: Int, dot: Color, modifier: Modifier) {
             }
         }
         Text("$value", style = MaterialTheme.typography.displayLarge, color = Color.White)
+    }
+}
+
+@Composable
+private fun MiniDemo(exercise: Exercise) {
+    var large by remember { mutableStateOf(false) }
+    Column(
+        Modifier
+            .width(if (large) 200.dp else 112.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(18.dp))
+            .clickable { large = !large },
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        ExerciseDemoView(
+            exercise.demo,
+            playing = true,
+            speed = 1f,
+            showCue = large,
+            modifier = Modifier.fillMaxWidth().height(if (large) 240.dp else 132.dp),
+        )
+        Text(
+            if (large) "KÜÇÜLT" else "NASIL YAPILIR",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White,
+            modifier = Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.7f)).padding(vertical = 4.dp),
+            textAlign = TextAlign.Center,
+        )
     }
 }
 

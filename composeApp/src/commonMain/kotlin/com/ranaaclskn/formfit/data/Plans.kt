@@ -124,7 +124,25 @@ fun planRuns(planId: String, sessions: List<WorkoutSession>): List<PlanRunSummar
         .sortedByDescending { it.startedAt }
 
 @Serializable
-private data class PlansFile(val version: Int = 1, val plans: List<WorkoutPlan> = emptyList())
+private data class PlansFile(
+    val version: Int = 1,
+    val plans: List<WorkoutPlan> = emptyList(),
+    /** Programların öncelik sırası: ilk eleman birinci öncelik. */
+    val programOrder: List<String> = emptyList(),
+)
+
+/** Kullanıcının kendi oluşturduğu günlerin varsayılan programı. */
+const val DEFAULT_PROGRAM = "Programım"
+
+/** Bir günün ait olduğu program. Eski kayıtlardaki boş grup ve "Programlarım" varsayılan programa gider. */
+val WorkoutPlan.programName: String
+    get() = if (group.isBlank() || group == "Programlarım") DEFAULT_PROGRAM else group
+
+/** Kullanıcının programları (hazır günler hariç), öncelik sırasına göre. */
+fun orderedPrograms(plans: List<WorkoutPlan>, order: List<String>): List<String> {
+    val names = plans.filter { it.group != PRESET_GROUP }.map { it.programName }.distinct()
+    return order.filter { it in names } + names.filterNot { it in order }
+}
 
 /** Kullanıcının programları; cihazda plans.json dosyasında tutulur. */
 object PlanRepository {
@@ -140,6 +158,52 @@ object PlanRepository {
 
     fun clearSavedMessage() { _lastSavedMessage.value = null }
 
+    private val _programOrder = MutableStateFlow<List<String>>(emptyList())
+    val programOrder: StateFlow<List<String>> = _programOrder.asStateFlow()
+
+    /** Yeni eklenen program: Programlar sayfası açılınca bu program seçili gelir. */
+    var focusProgram: String? = null
+
+    /** Programlar sayfasında şu an seçili program; yeni gün bu programa eklenir. */
+    var currentProgram: String? = null
+
+    fun programs(): List<String> = orderedPrograms(_plans.value, _programOrder.value)
+
+    private fun uniqueProgramName(name: String, taken: Set<String>): String {
+        var n = 2
+        while ("$name ($n)" in taken) n++
+        return "$name ($n)"
+    }
+
+    /** Programı birinci önceliğe taşır. */
+    fun makeFirst(program: String) {
+        _programOrder.value = listOf(program) + programs().filterNot { it == program }
+        save()
+    }
+
+    /** Programı bir sıra yukarı taşır. */
+    fun moveUp(program: String) {
+        val list = programs().toMutableList()
+        val i = list.indexOf(program)
+        if (i > 0) {
+            list.add(i - 1, list.removeAt(i))
+            _programOrder.value = list
+            save()
+        }
+    }
+
+    /** Programı ve içindeki tüm günleri siler. */
+    fun deleteProgram(program: String) {
+        _plans.value = _plans.value.filterNot { it.group != PRESET_GROUP && it.programName == program }
+        _programOrder.value = _programOrder.value.filterNot { it == program }
+        save()
+    }
+
+    /** Hazır bir günü kullanıcının programına kopyalar. */
+    fun copyToProgram(plan: WorkoutPlan, program: String) {
+        addAll(listOf(plan.copy(id = newId("plan"), group = program)), "${plan.name}, \"$program\" programına eklendi.")
+    }
+
     fun load() {
         if (loaded) return
         loaded = true
@@ -151,6 +215,7 @@ object PlanRepository {
             save()
         } else {
             _plans.value = file.plans.map { p -> p.copy(items = p.items.filter { exerciseById(it.exerciseId) != null }) }
+            _programOrder.value = file.programOrder
         }
     }
 
@@ -163,11 +228,18 @@ object PlanRepository {
         save()
     }
 
-    fun addAll(newPlans: List<WorkoutPlan>, message: String? = null) {
+    fun addAll(plansToAdd: List<WorkoutPlan>, message: String? = null) {
         load()
+        // Aynı adlı program zaten varsa (ör. öneri iki kez kaydedildi) günler karışmasın: "(2)" eki ver
+        val existing = programs().toSet()
+        val newPlans = plansToAdd.map { p ->
+            if (p.group == PRESET_GROUP || p.programName !in existing || plansToAdd.size == 1) p
+            else p.copy(group = uniqueProgramName(p.programName, existing))
+        }
         _plans.value = _plans.value + newPlans
         save()
         _lastSavedMessage.value = message
+        focusProgram = newPlans.firstOrNull()?.programName
     }
 
     fun delete(id: String) {
@@ -176,6 +248,8 @@ object PlanRepository {
     }
 
     private fun save() {
-        runCatching { writeAppFile(FILE, json.encodeToString(PlansFile(plans = _plans.value))) }
+        runCatching {
+            writeAppFile(FILE, json.encodeToString(PlansFile(plans = _plans.value, programOrder = _programOrder.value)))
+        }
     }
 }

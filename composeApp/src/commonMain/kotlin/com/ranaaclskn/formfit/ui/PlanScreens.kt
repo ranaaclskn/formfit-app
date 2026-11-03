@@ -45,6 +45,12 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.ranaaclskn.formfit.data.programName
+import com.ranaaclskn.formfit.data.orderedPrograms
+import com.ranaaclskn.formfit.data.DEFAULT_PROGRAM
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.LaunchedEffect
@@ -83,49 +89,36 @@ import com.ranaaclskn.formfit.model.exerciseById
 fun PlansScreen(onOpen: (String) -> Unit, onCreate: () -> Unit, onRecommend: () -> Unit) {
     LaunchedEffect(Unit) { PlanRepository.load() }
     val plans by PlanRepository.plans.collectAsState()
+    val order by PlanRepository.programOrder.collectAsState()
     val sessions by HistoryRepository.sessions.collectAsState()
     val saved by PlanRepository.lastSavedMessage.collectAsState()
     var section by rememberSaveable { mutableStateOf(PlanSection.MINE) }
-    val mine = plans.filter { it.isOwn() }
-    val recommended = plans.filter { !it.isOwn() && it.group != PRESET_GROUP }
+    val programs = orderedPrograms(plans, order)
+    // Seçim yapılmadıysa birinci öncelikli program gösterilir; yeni eklenen program varsa o seçili gelir
+    var selected by rememberSaveable { mutableStateOf<String?>(null) }
+    // Öneri ya da yeni gün kaydedilince o program "Programlarım"da seçili açılır
+    LaunchedEffect(saved, plans.size) {
+        PlanRepository.focusProgram?.let {
+            selected = it
+            section = PlanSection.MINE
+            PlanRepository.focusProgram = null
+        }
+    }
+    val current = selected?.takeIf { it in programs } ?: programs.firstOrNull()
+    PlanRepository.currentProgram = current
+    val days = plans.filter { it.group != PRESET_GROUP && it.programName == current }
     val presets = plans.filter { it.group == PRESET_GROUP }
+    var confirmDelete by remember { mutableStateOf(false) }
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 28.dp)) {
         item {
             ScreenHeader(
                 "Çalışma planın",
                 "Programlar",
-                "Kendi programını oluştur, hareketleri seç ve istediğin hareketten form kontrolüne başla.",
+                "Programını seç, günlerini gör ve istediğin hareketten form kontrolüne başla.",
             )
         }
-        item {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 6.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(FfColors.Surface)
-                    .border(1.dp, FfColors.Border, RoundedCornerShape(50))
-                    .padding(4.dp),
-            ) {
-                PlanSection.entries.forEach { sec ->
-                    val selected = sec == section
-                    Text(
-                        sec.title.trUpper(),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (selected) FfColors.OnAccent else FfColors.TextSecondary,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(50))
-                            .background(if (selected) FfColors.Accent else Color.Transparent)
-                            .clickable { section = sec }
-                            .padding(vertical = 11.dp),
-                    )
-                }
-            }
-        }
+        item { SegmentedTabs(PlanSection.entries.map { it.title }, section.ordinal, { section = PlanSection.entries[it] }) }
         if (saved != null) {
             item {
                 Row(
@@ -156,27 +149,58 @@ fun PlansScreen(onOpen: (String) -> Unit, onCreate: () -> Unit, onRecommend: () 
 
         when (section) {
             PlanSection.MINE -> {
-                item { CreatePlanCard(onCreate) }
-                if (mine.isEmpty()) {
+                if (current == null) {
                     item {
                         InfoCard(
-                            "Henüz kendi programın yok",
-                            "Yukarıdan yeni bir program oluştur ya da Önerilen / Hazır sekmesindeki bir programı açıp \"Programıma ekle\" de.",
+                            "Henüz programın yok",
+                            "Yeni bir program oluştur, \"Program öner\" ile sana uygun haftalık programı hazırlat ya da Hazır sekmesinden bir günü programına ekle.",
                         )
                     }
+                    item { CreatePlanCard("Yeni program oluştur", "İlk gününü oluştur: hareketleri seç, set ve tekrarı belirle.") { PlanRepository.currentProgram = null; onCreate() } }
                 } else {
-                    item(key = "h-mine") { GroupHeader("Benim programım", "${mine.size} gün") }
-                    planItems(mine)
+                    item {
+                        ProgramSelector(
+                            programs = programs,
+                            current = current,
+                            onSelect = { selected = it },
+                        )
+                    }
+                    item {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            val rank = programs.indexOf(current) + 1
+                            if (rank > 1) {
+                                PillOption("Birinci öncelik yap", false) { PlanRepository.makeFirst(current); selected = current }
+                                PillOption("↑ Öne al", false) { PlanRepository.moveUp(current); selected = current }
+                            } else {
+                                Overline("Bu program birinci önceliğin", color = FfColors.TextSecondary)
+                            }
+                            Spacer(Modifier.weight(1f))
+                            RoundIconButton(Icons.Filled.Delete, "Programı sil", { confirmDelete = true })
+                        }
+                    }
+                    item(key = "h-days") { GroupHeader("Günler", "${days.size} gün") }
+                    planItems(days)
+                    item { CreatePlanCard("Bu programa gün ekle", "\"$current\" programına yeni bir antrenman günü ekle.", onCreate) }
+                    item {
+                        SecondaryButton(
+                            "Yeni program oluştur",
+                            { PlanRepository.currentProgram = null; onCreate() },
+                            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+                        )
+                    }
                 }
             }
-            PlanSection.RECOMMENDED -> {
+            PlanSection.RECOMMEND -> {
                 item { RecommendCard(onRecommend) }
-                recommended.groupBy { it.group }.forEach { (group, list) ->
-                    item(key = "g-$group") { GroupHeader(group, "${list.size} gün") }
-                    planItems(list)
-                }
-                if (recommended.isEmpty()) {
-                    item { InfoCard("Henüz önerilen program yok", "Hedefini ve seviyeni seç, sana uygun haftalık programı hazırlayalım.") }
+                item {
+                    InfoCard(
+                        "Öneri nasıl çalışır?",
+                        "Hedefini, seviyeni, haftada kaç gün çalışabileceğini ve ekipmanını seç. Hazırlanan program \"Programlarım\" sekmesine eklenir; istersen birinci önceliğin yapabilirsin.",
+                    )
                 }
             }
             PlanSection.READY -> {
@@ -185,18 +209,93 @@ fun PlansScreen(onOpen: (String) -> Unit, onCreate: () -> Unit, onRecommend: () 
             }
         }
     }
+
+    if (confirmDelete && current != null) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            containerColor = FfColors.Surface,
+            title = { Text("PROGRAM SİLİNSİN Mİ?", style = MaterialTheme.typography.headlineMedium) },
+            text = { Text("\"$current\" ve içindeki ${days.size} gün silinecek. Yaptığın setler geçmişte kalır.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    PlanRepository.deleteProgram(current)
+                    selected = null
+                }) { Text("SİL", color = FfColors.Bad, style = MaterialTheme.typography.labelLarge) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) {
+                    Text("VAZGEÇ", color = FfColors.Text, style = MaterialTheme.typography.labelLarge)
+                }
+            },
+        )
+    }
+}
+
+/** Öncelik sırasına göre programlar arasında seçim yapan açılır seçici. */
+@Composable
+private fun ProgramSelector(programs: List<String>, current: String, onSelect: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val rank = programs.indexOf(current) + 1
+    Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(22.dp))
+                .background(FfColors.Accent)
+                .clickable { open = true }
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Overline("$rank. öncelik · ${programs.size} program", color = FfColors.OnAccent.copy(alpha = 0.55f))
+                Spacer(Modifier.height(2.dp))
+                Text(current.trUpper(), style = MaterialTheme.typography.headlineLarge, color = FfColors.OnAccent)
+            }
+            Icon(Icons.Filled.KeyboardArrowDown, "Program seç", tint = FfColors.OnAccent, modifier = Modifier.size(30.dp))
+        }
+        DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            containerColor = FfColors.Surface,
+            modifier = Modifier.fillMaxWidth(0.88f),
+        ) {
+            programs.forEachIndexed { i, name ->
+                DropdownMenuItem(
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "${i + 1}.",
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = FfColors.TextMuted,
+                                modifier = Modifier.width(36.dp),
+                            )
+                            Column {
+                                Text(name.trUpper(), style = MaterialTheme.typography.titleLarge, color = FfColors.Text)
+                                Overline(if (i == 0) "Birinci öncelik" else "${i + 1}. öncelik")
+                            }
+                        }
+                    },
+                    onClick = {
+                        onSelect(name)
+                        open = false
+                    },
+                    modifier = Modifier.padding(vertical = 6.dp),
+                )
+            }
+        }
+    }
 }
 
 private enum class PlanSection(val title: String) {
-    MINE("Benim Programım"),
-    RECOMMENDED("Önerilen"),
+    MINE("Programlarım"),
+    RECOMMEND("Program öner"),
     READY("Hazır"),
 }
 
 /** Kullanıcının kendi oluşturduğu (ya da kendine kopyaladığı) program mı? */
-private fun WorkoutPlan.isOwn(): Boolean = group.isBlank() || group == MY_GROUP
+private fun WorkoutPlan.isOwn(): Boolean = group != PRESET_GROUP
 
-private const val MY_GROUP = "Programlarım"
 
 @Composable
 private fun GroupHeader(title: String, trailing: String) {
@@ -261,32 +360,26 @@ private fun RecommendCard(onClick: () -> Unit) {
 }
 
 @Composable
-private fun CreatePlanCard(onClick: () -> Unit) {
+private fun CreatePlanCard(title: String, text: String, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 6.dp)
             .clip(RoundedCornerShape(22.dp))
-            .background(FfColors.Accent)
+            .border(1.dp, FfColors.Border, RoundedCornerShape(22.dp))
             .clickable(onClick = onClick)
             .padding(20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Overline("Kendi planın", color = FfColors.OnAccent.copy(alpha = 0.55f))
+            Text(title.trUpper(), style = MaterialTheme.typography.titleLarge, color = FfColors.Text)
             Spacer(Modifier.height(2.dp))
-            Text("YENİ PROGRAM OLUŞTUR", style = MaterialTheme.typography.headlineMedium, color = FfColors.OnAccent)
-            Spacer(Modifier.height(2.dp))
-            Text(
-                "Hareketleri seç, set ve tekrar sayısını belirle.",
-                style = MaterialTheme.typography.bodySmall,
-                color = FfColors.OnAccent.copy(alpha = 0.7f),
-            )
+            Text(text, style = MaterialTheme.typography.bodySmall, color = FfColors.TextSecondary)
         }
         Box(
-            Modifier.size(48.dp).clip(CircleShape).background(FfColors.OnAccent),
+            Modifier.size(44.dp).clip(CircleShape).background(FfColors.Accent),
             contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Filled.Add, "Oluştur", tint = FfColors.Accent) }
+        ) { Icon(Icons.Filled.Add, title, tint = FfColors.OnAccent) }
     }
 }
 
@@ -387,10 +480,8 @@ fun PlanDetailScreen(
                 SecondaryButton(
                     "Programıma ekle",
                     onClick = {
-                        PlanRepository.addAll(
-                            listOf(plan.copy(id = newId("plan"), group = "")),
-                            "${plan.name} Benim Programım'a eklendi",
-                        )
+                        // Birinci öncelikli programa eklenir; hiç program yoksa "Programım" oluşur
+                        PlanRepository.copyToProgram(plan, PlanRepository.programs().firstOrNull() ?: DEFAULT_PROGRAM)
                     },
                     modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 14.dp),
                 )
@@ -530,6 +621,11 @@ fun PlanEditScreen(planId: String?, onDone: (planId: String, start: Boolean) -> 
     val existing = remember(planId) { planId?.let { PlanRepository.find(it) } }
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var description by remember { mutableStateOf(existing?.description ?: "") }
+    val isPreset = existing?.group == PRESET_GROUP
+    var program by remember {
+        mutableStateOf(existing?.takeIf { !isPreset }?.programName ?: PlanRepository.currentProgram ?: "")
+    }
+    val programs = remember { PlanRepository.programs() }
     val planItems = remember { mutableStateListOf<PlanItem>().apply { addAll(existing?.items.orEmpty()) } }
     var picking by remember { mutableStateOf(false) }
     val canSave = name.isNotBlank() && planItems.isNotEmpty()
@@ -568,6 +664,17 @@ fun PlanEditScreen(planId: String?, onDone: (planId: String, start: Boolean) -> 
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 FfTextField(name, { name = it }, "Program adı (ör. İtiş Günü)")
                 FfTextField(description, { description = it }, "Açıklama (isteğe bağlı)")
+                if (!isPreset) {
+                    FfTextField(program, { program = it }, "Program (ör. İtiş-Çekiş-Bacak)")
+                }
+            }
+            if (!isPreset && programs.isNotEmpty()) {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(programs) { p -> PillOption(p, selected = program == p) { program = p } }
+                }
             }
 
             Spacer(Modifier.height(20.dp))
@@ -634,9 +741,10 @@ fun PlanEditScreen(planId: String?, onDone: (planId: String, start: Boolean) -> 
                     name = name.trim(),
                     description = description.trim(),
                     items = planItems.toList(),
-                    group = existing?.group ?: "",
+                    group = if (isPreset) PRESET_GROUP else program.trim().ifBlank { DEFAULT_PROGRAM },
                 )
                 PlanRepository.upsert(plan)
+                if (!isPreset) PlanRepository.focusProgram = plan.group
                 onDone(plan.id, start)
             }
             if (canSave) {
