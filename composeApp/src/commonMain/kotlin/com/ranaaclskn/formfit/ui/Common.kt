@@ -29,7 +29,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -250,23 +249,23 @@ fun SegmentedTabs(options: List<String>, selected: Int, onSelect: (Int) -> Unit,
     }
 }
 
-/** Hareket arama çubuğu; açılınca klavye kendiliğinden gelir. */
+/** Hareket arama çubuğu; filtrelerin hemen üstünde her zaman görünür. */
 @Composable
-fun ExerciseSearchField(query: String, onChange: (String) -> Unit, onClose: () -> Unit, modifier: Modifier = Modifier) {
-    val focus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
-    androidx.compose.runtime.LaunchedEffect(Unit) { focus.requestFocus() }
+fun ExerciseSearchField(query: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
     androidx.compose.material3.OutlinedTextField(
         value = query,
         onValueChange = onChange,
         placeholder = { Text("Hareket, kas ya da alet ara…", color = FfColors.TextMuted) },
         leadingIcon = { Icon(Icons.Filled.Search, null, tint = FfColors.TextSecondary) },
-        trailingIcon = {
-            Icon(
-                Icons.Filled.Close,
-                "Aramayı kapat",
-                tint = FfColors.Text,
-                modifier = Modifier.clip(CircleShape).clickable(onClick = onClose).padding(8.dp),
-            )
+        trailingIcon = if (query.isEmpty()) null else {
+            {
+                Icon(
+                    Icons.Filled.Close,
+                    "Aramayı temizle",
+                    tint = FfColors.Text,
+                    modifier = Modifier.clip(CircleShape).clickable { onChange("") }.padding(8.dp),
+                )
+            }
         },
         singleLine = true,
         shape = RoundedCornerShape(50),
@@ -278,6 +277,6 @@ fun ExerciseSearchField(query: String, onChange: (String) -> Unit, onClose: () -
             focusedContainerColor = FfColors.Card,
             unfocusedContainerColor = FfColors.Card,
         ),
-        modifier = modifier.fillMaxWidth().focusRequester(focus),
+        modifier = modifier.fillMaxWidth(),
     )
 }

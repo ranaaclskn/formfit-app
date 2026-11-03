@@ -61,7 +61,6 @@ private fun Exercise.number(): String = (EXERCISES.indexOf(this) + 1).toString()
 @Composable
 fun WorkoutHomeScreen(onStart: (String) -> Unit) {
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
-    var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     val list = EXERCISES.filter {
         val inFilter = when (filter) {
@@ -85,11 +84,8 @@ fun WorkoutHomeScreen(onStart: (String) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item(span = { GridItemSpan(2) }) {
-            Column(Modifier.padding(top = 12.dp, bottom = 4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Overline("FORMFIT · Antrenman", Modifier.weight(1f))
-                    RoundIconButton(Icons.Filled.Search, "Hareket ara", { searching = true })
-                }
+            Column(Modifier.padding(top = 20.dp, bottom = 4.dp)) {
+                Overline("FORMFIT · Antrenman")
                 Spacer(Modifier.height(6.dp))
                 Text("BUGÜN NE\nÇALIŞIYORUZ?", style = MaterialTheme.typography.displayLarge, color = FfColors.Text)
                 Spacer(Modifier.height(10.dp))
@@ -100,33 +96,32 @@ fun WorkoutHomeScreen(onStart: (String) -> Unit) {
                 )
             }
         }
-        if (searching) {
-            item(span = { GridItemSpan(2) }) {
-                ExerciseSearchField(query, { query = it }, { searching = false; query = "" })
-            }
-            if (list.isEmpty()) {
-                item(span = { GridItemSpan(2) }) {
-                    Text(
-                        "\"$query\" ile eşleşen hareket bulunamadı.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = FfColors.TextMuted,
-                        modifier = Modifier.padding(vertical = 12.dp),
-                    )
-                }
-            }
-        }
-        if (!searching) item(span = { GridItemSpan(2) }) {
+        item(span = { GridItemSpan(2) }) {
             WeekStrip(
                 workouts = thisWeek.size,
                 reps = weekReps,
                 accuracy = if (weekReps == 0) null else weekCorrect * 100 / weekReps,
             )
         }
+        // Arama çubuğu filtrelerin hemen üstünde: önce ara, sonra kategoriyle daralt
+        item(span = { GridItemSpan(2) }) {
+            ExerciseSearchField(query, { query = it }, Modifier.padding(top = 4.dp))
+        }
         item(span = { GridItemSpan(2) }) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 4.dp)) {
                 item { PillOption("Tümü", filter == null) { filter = null } }
                 item { PillOption("Salon aletleri", filter == GYM_FILTER) { filter = GYM_FILTER } }
                 items(Category.entries) { c -> PillOption(c.title, filter == c.name) { filter = c.name } }
+            }
+        }
+        if (list.isEmpty()) {
+            item(span = { GridItemSpan(2) }) {
+                Text(
+                    if (query.isNotBlank()) "\"$query\" ile eşleşen hareket bulunamadı." else "Bu filtrede hareket yok.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = FfColors.TextMuted,
+                    modifier = Modifier.padding(vertical = 12.dp),
+                )
             }
         }
         items(list, key = { it.id }) { ex -> ExerciseTile(ex) { onStart(ex.id) } }
@@ -210,32 +205,26 @@ private fun ExerciseTile(ex: Exercise, onClick: () -> Unit) {
 /** Hareketler sekmesi: numaralı, kategorilere ayrılmış liste. */
 @Composable
 fun LibraryScreen(onOpen: (String) -> Unit) {
-    var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 28.dp)) {
-        item {
-            Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp), horizontalArrangement = Arrangement.End) {
-                RoundIconButton(Icons.Filled.Search, "Hareket ara", { searching = true })
-            }
-        }
-        if (searching) {
-            item { ExerciseSearchField(query, { query = it }, { searching = false; query = "" }, Modifier.padding(horizontal = 20.dp)) }
-            val found = EXERCISES.filter { it.matches(query) }
-            item(key = "found") {
-                Overline(
-                    if (found.isEmpty()) "Eşleşen hareket yok" else "${found.size} hareket",
-                    Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp),
-                )
-            }
-            items(found, key = { "s-" + it.id }) { ex -> LibraryRow(ex) { onOpen(ex.id) } }
-            return@LazyColumn
-        }
         item {
             ScreenHeader(
                 "Kütüphane",
                 "Hareketler",
                 "Her hareketin videosu, dikkat edilmesi gerekenler ve püf noktaları.",
             )
+        }
+        item { ExerciseSearchField(query, { query = it }, Modifier.padding(horizontal = 20.dp)) }
+        if (query.isNotBlank()) {
+            val found = EXERCISES.filter { it.matches(query) }
+            item(key = "found") {
+                Overline(
+                    if (found.isEmpty()) "Eşleşen hareket yok" else "${found.size} hareket bulundu",
+                    Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp),
+                )
+            }
+            items(found, key = { "s-" + it.id }) { ex -> LibraryRow(ex) { onOpen(ex.id) } }
+            return@LazyColumn
         }
         Category.entries.forEach { cat ->
             val inCat = EXERCISES.filter { it.category == cat }

@@ -176,10 +176,9 @@ private fun BottomBar(nav: NavHostController, route: String?) {
                 NavigationBarItem(
                     selected = route == tab.route,
                     onClick = {
+                        // Sekmeye basınca sayfa ilk haline döner: arama, filtre ve kaydırma sıfırlanır
                         nav.navigate(tab.route) {
-                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
+                            popUpTo(nav.graph.id) { inclusive = true }
                         }
                     },
                     icon = { Icon(tab.icon, contentDescription = tab.title) },
